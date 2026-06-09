@@ -1,0 +1,188 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI",
+    sans-serif;
+  background: #141414;
+  color: #f5f5f5;
+}
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #303030;
+  background: #1d1d1d;
+}
+
+.app-toolbar .spacer {
+  flex: 1;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-outline {
+  width: 280px;
+  border-right: 1px solid #303030;
+  background: #1a1a1a;
+}
+
+.panel-editor {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.panel-preview {
+  width: 360px;
+  border-left: 1px solid #303030;
+  background: #161616;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.panel-header {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #9fb3c8;
+  border-bottom: 1px solid #303030;
+  text-transform: none;
+}
+
+.outline-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.outline-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #262626;
+}
+
+.outline-item:hover {
+  background: #232323;
+}
+
+.outline-item.active {
+  background: #2a2a22;
+  border-left: 3px solid #e0b34a;
+}
+
+.outline-item .title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outline-item.disabled .title {
+  color: #6b6b6b;
+  text-decoration: line-through;
+}
+
+.slide-card {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0d1b2a;
+  border: 1px solid #2a3a4a;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide-card .label {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  color: #e0b34a;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.slide-card .title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.slide-card .subtitle,
+.slide-card .reference {
+  font-size: 12px;
+  color: #9fb3c8;
+  margin-top: 6px;
+}
+
+.slide-card .reference {
+  position: absolute;
+  bottom: 8px;
+}
+
+.slide-card .body {
+  font-size: 14px;
+  color: #f0f0f0;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.slide-card.big .body {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.editor-section + .editor-section {
+  margin-top: 18px;
+}
+
+.center-state {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9fb3c8;
+}
+
+.inline-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
