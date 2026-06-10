@@ -3,7 +3,6 @@ import {
   App as AntApp,
   Button,
   Dropdown,
-  Empty,
   Input,
   Modal,
   Result,
@@ -14,6 +13,7 @@ import {
 } from "antd";
 import type { MenuProps } from "antd";
 import {
+  ArrowLeftOutlined,
   CheckCircleOutlined,
   CopyOutlined,
   DeleteOutlined,
@@ -28,14 +28,17 @@ import { api, pickSavePath } from "./api";
 import type { Project, Section, SectionType, SlideModel, TemplateSummary } from "./types";
 import { SECTION_TYPE_LABEL } from "./types";
 import { makeSection } from "./sectionFactory";
+import { ProjectListPage } from "./components/ProjectListPage";
 import { SectionEditor } from "./components/SectionEditor";
 import { SlidePreview } from "./components/SlidePreview";
 
 type BackendState = "loading" | "ready" | "error";
+type Screen = "list" | "editor";
 
 function Main() {
   const { message } = AntApp.useApp();
   const [backend, setBackend] = useState<BackendState>("loading");
+  const [screen, setScreen] = useState<Screen>("list");
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -44,7 +47,17 @@ function Main() {
   const [exporting, setExporting] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  const [listRefreshKey, setListRefreshKey] = useState(0);
+  const [unsavedOpen, setUnsavedOpen] = useState(false);
+  const pendingNav = useRef<(() => void) | null>(null);
   const previewTimer = useRef<number | null>(null);
+
+  const markProjectClean = useCallback((p: Project) => {
+    setSavedSnapshot(JSON.stringify(p));
+    setDirty(false);
+  }, []);
 
   // ---- backend bootstrap ----
   useEffect(() => {
@@ -60,9 +73,18 @@ function Main() {
     })();
   }, []);
 
+  // ---- dirty tracking ----
+  useEffect(() => {
+    if (!project || savedSnapshot === null) {
+      setDirty(false);
+      return;
+    }
+    setDirty(JSON.stringify(project) !== savedSnapshot);
+  }, [project, savedSnapshot]);
+
   // ---- debounced whole-project preview ----
   useEffect(() => {
-    if (!project) {
+    if (!project || screen !== "editor") {
       setSlides([]);
       return;
     }
@@ -71,14 +93,14 @@ function Main() {
       try {
         const res = await api.previewProject(project);
         setSlides(res.slides);
-      } catch (e: any) {
-        // Invalid reference etc. — keep last good preview, surface lightly.
+      } catch {
+        // Invalid reference etc. — keep last good preview.
       }
     }, 350);
     return () => {
       if (previewTimer.current) window.clearTimeout(previewTimer.current);
     };
-  }, [project]);
+  }, [project, screen]);
 
   const selectedSection = useMemo(
     () => project?.sections.find((s) => s.id === selectedId) ?? null,
@@ -90,12 +112,60 @@ function Main() {
     [slides, selectedId]
   );
 
+  const guardNavigation = useCallback(
+    (action: () => void) => {
+      if (screen === "editor" && dirty) {
+        pendingNav.current = action;
+        setUnsavedOpen(true);
+      } else {
+        action();
+      }
+    },
+    [screen, dirty]
+  );
+
+  const navigateToList = useCallback(() => {
+    guardNavigation(() => {
+      setProject(null);
+      setSelectedId(null);
+      setSavedSnapshot(null);
+      setDirty(false);
+      setScreen("list");
+      setListRefreshKey((k) => k + 1);
+    });
+  }, [guardNavigation]);
+
+  const openProject = useCallback(
+    async (id: string) => {
+      try {
+        const p = await api.getProject(id);
+        setProject(p);
+        setSelectedId(p.sections[0]?.id ?? null);
+        markProjectClean(p);
+        setScreen("editor");
+      } catch (e: any) {
+        message.error(e.message ?? "加载失败");
+      }
+    },
+    [markProjectClean, message]
+  );
+
+  const requestNewProject = useCallback(() => {
+    if (screen === "editor") {
+      guardNavigation(() => setNewOpen(true));
+    } else {
+      setNewOpen(true);
+    }
+  }, [screen, guardNavigation]);
+
   // ---- project ops ----
   const handleCreate = async (templateId: string, name: string) => {
     try {
       const p = await api.createProject(templateId || null, name);
       setProject(p);
       setSelectedId(p.sections[0]?.id ?? null);
+      markProjectClean(p);
+      setScreen("editor");
       setNewOpen(false);
       message.success("已创建工程");
     } catch (e: any) {
@@ -188,15 +258,17 @@ function Main() {
     );
   };
 
-  const duplicateProject = () => {
+  const duplicateProject = async () => {
     if (!project) return;
-    const copy: Project = JSON.parse(JSON.stringify(project));
-    copy.id = crypto.randomUUID();
-    copy.name = `${project.name} 副本`;
-    copy.sections = copy.sections.map((s) => ({ ...s, id: crypto.randomUUID() }));
-    setProject(copy);
-    setSelectedId(copy.sections[0]?.id ?? null);
-    message.success("已复制为新工程");
+    try {
+      const copy = await api.duplicateProject(project.id);
+      setProject(copy);
+      setSelectedId(copy.sections[0]?.id ?? null);
+      markProjectClean(copy);
+      message.success("已复制为新工程");
+    } catch (e: any) {
+      message.error(e.message ?? "复制失败");
+    }
   };
 
   const handleExport = async () => {
@@ -240,15 +312,41 @@ function Main() {
     message.success(`已导出: ${res.path}`);
   };
 
-  const handleSave = async () => {
-    if (!project) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!project) return true;
     try {
-      await api.saveProject(project);
+      const saved = await api.saveProject(project);
       await api.saveToDisk(project.id);
+      setProject(saved);
+      markProjectClean(saved);
       message.success("已保存");
+      return true;
     } catch (e: any) {
       message.error(e.message ?? "保存失败");
+      return false;
     }
+  };
+
+  const handleUnsavedSave = async () => {
+    const ok = await handleSave();
+    if (ok) {
+      setUnsavedOpen(false);
+      const action = pendingNav.current;
+      pendingNav.current = null;
+      action?.();
+    }
+  };
+
+  const handleUnsavedDiscard = () => {
+    setUnsavedOpen(false);
+    const action = pendingNav.current;
+    pendingNav.current = null;
+    action?.();
+  };
+
+  const handleUnsavedCancel = () => {
+    setUnsavedOpen(false);
+    pendingNav.current = null;
   };
 
   // ---- keyboard shortcuts ----
@@ -256,6 +354,15 @@ function Main() {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
+
+      if (mod && key === "n") {
+        e.preventDefault();
+        requestNewProject();
+        return;
+      }
+
+      if (screen !== "editor" || !project) return;
+
       if (mod && key === "s") {
         e.preventDefault();
         handleSave();
@@ -266,9 +373,6 @@ function Main() {
       } else if (mod && key === "e") {
         e.preventDefault();
         handleExport();
-      } else if (mod && key === "n") {
-        e.preventDefault();
-        setNewOpen(true);
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         const el = document.activeElement as HTMLElement | null;
         const tag = el?.tagName;
@@ -283,7 +387,7 @@ function Main() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, selectedId]);
+  }, [project, selectedId, screen, requestNewProject]);
 
   // ---- render ----
   if (backend === "loading") {
@@ -307,46 +411,62 @@ function Main() {
   return (
     <div className="app-layout">
       <div className="app-toolbar">
-        <strong style={{ color: "#e0b34a", fontSize: 16 }}>Lumina</strong>
-        {project && (
-          <Input
-            style={{ width: 240 }}
-            value={project.name}
-            onChange={(e) => setProject({ ...project, name: e.target.value })}
-          />
+        {screen === "editor" ? (
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={navigateToList}
+            className="back-to-list-btn"
+          >
+            返回列表
+          </Button>
+        ) : (
+          <strong style={{ color: "#e0b34a", fontSize: 16 }}>Lumina</strong>
+        )}
+        {screen === "editor" && project && (
+          <>
+            <strong style={{ color: "#e0b34a", fontSize: 16 }}>Lumina</strong>
+            <Input
+              style={{ width: 240 }}
+              value={project.name}
+              onChange={(e) => setProject({ ...project, name: e.target.value })}
+            />
+            {dirty && <Tag color="gold">未保存</Tag>}
+          </>
         )}
         <div className="spacer" />
-        <Space>
-          <Button icon={<FileAddOutlined />} onClick={() => setNewOpen(true)}>
-            新建
-          </Button>
-          <Button icon={<CopyOutlined />} disabled={!project} onClick={duplicateProject}>
-            复制工程
-          </Button>
-          <Button icon={<SaveOutlined />} disabled={!project} onClick={handleSave}>
-            保存
-          </Button>
-          <Button
-            type="primary"
-            icon={<ExportOutlined />}
-            disabled={!project}
-            loading={exporting}
-            onClick={handleExport}
-          >
-            导出 PPTX
-          </Button>
-        </Space>
+        {screen === "editor" && (
+          <Space>
+            <Button icon={<FileAddOutlined />} onClick={requestNewProject}>
+              新建
+            </Button>
+            <Button icon={<CopyOutlined />} disabled={!project} onClick={duplicateProject}>
+              复制工程
+            </Button>
+            <Button icon={<SaveOutlined />} disabled={!project} onClick={() => handleSave()}>
+              保存
+            </Button>
+            <Button
+              type="primary"
+              icon={<ExportOutlined />}
+              disabled={!project}
+              loading={exporting}
+              onClick={handleExport}
+            >
+              导出 PPTX
+            </Button>
+          </Space>
+        )}
       </div>
 
       <div className="app-body">
-        {!project ? (
-          <div className="center-state" style={{ flex: 1 }}>
-            <Empty description="还没有工程" />
-            <Button type="primary" icon={<FileAddOutlined />} onClick={() => setNewOpen(true)}>
-              从模板新建礼拜
-            </Button>
-          </div>
-        ) : (
+        {screen === "list" ? (
+          <ProjectListPage
+            onOpen={openProject}
+            onNew={requestNewProject}
+            refreshKey={listRefreshKey}
+          />
+        ) : project ? (
           <>
             <div className="panel panel-outline">
               <div className="panel-header outline-head">
@@ -464,7 +584,7 @@ function Main() {
               ))}
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
       <NewProjectModal
@@ -473,6 +593,25 @@ function Main() {
         onCancel={() => setNewOpen(false)}
         onCreate={handleCreate}
       />
+
+      <Modal
+        title="未保存的修改"
+        open={unsavedOpen}
+        onCancel={handleUnsavedCancel}
+        footer={[
+          <Button key="cancel" onClick={handleUnsavedCancel}>
+            取消
+          </Button>,
+          <Button key="discard" onClick={handleUnsavedDiscard}>
+            放弃修改
+          </Button>,
+          <Button key="save" type="primary" onClick={handleUnsavedSave}>
+            保存并继续
+          </Button>,
+        ]}
+      >
+        当前工程有未保存的修改，离开前如何处理？
+      </Modal>
     </div>
   );
 }

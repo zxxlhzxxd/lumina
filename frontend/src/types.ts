@@ -99,6 +99,14 @@ export interface Project {
   updated_at?: string;
 }
 
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  date: string | null;
+  section_count: number;
+  updated_at?: string;
+}
+
 export interface Book {
   id: number;
   name: string;

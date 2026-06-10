@@ -5,6 +5,7 @@ import type {
   Book,
   ChapterInfo,
   Project,
+  ProjectSummary,
   SlideModel,
   TemplateSummary,
   ValidationIssue,
@@ -96,11 +97,21 @@ export const api = {
 
   listTemplates: () => request<TemplateSummary[]>("GET", "/service-templates"),
 
+  listProjects: () => request<ProjectSummary[]>("GET", "/projects"),
+
+  getProject: (id: string) => request<Project>("GET", `/projects/${id}`),
+
   createProject: (templateId: string | null, name?: string) =>
     request<Project>("POST", "/projects", {
       template_id: templateId,
       name,
     }),
+
+  deleteProject: (id: string) =>
+    request<{ deleted: string }>("DELETE", `/projects/${id}`),
+
+  duplicateProject: (id: string) =>
+    request<Project>("POST", `/projects/${id}/duplicate`),
 
   saveProject: (project: Project) =>
     request<Project>("PUT", `/projects/${project.id}`, project),

@@ -5,7 +5,7 @@ is phase 2/3). Projects are also cached in memory for the running session.
 """
 from __future__ import annotations
 
-import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
@@ -15,6 +15,8 @@ from app.core.config import settings
 from app.core.errors import NotFoundError
 from app.domain.project import Project
 from app.services.template_store import template_store
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -62,9 +64,15 @@ class ProjectStore:
         else:
             project = Project(name=name or "未命名礼拜", date=date)
         self._projects[project.id] = project
+        self.write_file(project)
         return project
 
     def list(self) -> List[dict]:
+        projects = sorted(
+            self._projects.values(),
+            key=lambda p: p.updated_at or "",
+            reverse=True,
+        )
         return [
             {
                 "id": p.id,
@@ -73,7 +81,7 @@ class ProjectStore:
                 "section_count": len(p.sections),
                 "updated_at": p.updated_at,
             }
-            for p in self._projects.values()
+            for p in projects
         ]
 
     def get(self, project_id: str) -> Project:
@@ -114,6 +122,7 @@ class ProjectStore:
         copy.created_at = _now()
         copy.updated_at = _now()
         self._projects[copy.id] = copy
+        self.write_file(copy)
         return copy
 
     def duplicate_section(self, project_id: str, section_id: str) -> Project:
@@ -144,6 +153,17 @@ class ProjectStore:
         project = Project.model_validate_json(path.read_text(encoding="utf-8"))
         self._projects[project.id] = project
         return project
+
+    def load_all_from_disk(self) -> None:
+        settings.ensure_dirs()
+        for path in settings.projects_dir.glob("*.lumina"):
+            try:
+                project = Project.model_validate_json(
+                    path.read_text(encoding="utf-8")
+                )
+                self._projects[project.id] = project
+            except Exception as exc:
+                logger.warning("跳过损坏的工程文件 %s: %s", path.name, exc)
 
 
 project_store = ProjectStore()

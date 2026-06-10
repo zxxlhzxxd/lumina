@@ -20,11 +20,13 @@ from app.api.v1 import bible, projects, system, templates
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.core.responses import err
+from app.services.project_store import project_store
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings.ensure_dirs()
+    project_store.load_all_from_disk()
     yield
 
 
