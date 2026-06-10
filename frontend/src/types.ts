@@ -99,6 +99,19 @@ export interface Project {
   updated_at?: string;
 }
 
+export interface Book {
+  id: number;
+  name: string;
+  short_names: string[];
+  order: number;
+  chapter_count: number;
+}
+
+export interface ChapterInfo {
+  chapter: number;
+  verse_count: number;
+}
+
 export interface TemplateSummary {
   id: string;
   name: string;

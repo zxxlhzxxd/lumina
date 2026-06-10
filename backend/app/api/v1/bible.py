@@ -19,6 +19,11 @@ def get_books() -> dict:
     return ok([b.model_dump() for b in bible_service.get_books()])
 
 
+@router.get("/books/{book_id}/chapters")
+def get_chapters(book_id: int) -> dict:
+    return ok(bible_service.get_chapters(book_id))
+
+
 @router.get("/passage")
 def get_passage(ref: str) -> dict:
     reference, verses = bible_service.get_passage(ref)

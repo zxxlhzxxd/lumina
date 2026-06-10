@@ -75,6 +75,13 @@ body {
   text-transform: none;
 }
 
+.outline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .outline-list {
   overflow-y: auto;
   flex: 1;
@@ -98,6 +105,26 @@ body {
   border-left: 3px solid #e0b34a;
 }
 
+.outline-item .drag-handle {
+  color: #5a5a5a;
+  cursor: grab;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.outline-item:hover .drag-handle {
+  color: #9a9a9a;
+}
+
+.outline-item.dragging {
+  opacity: 0.45;
+}
+
+.outline-item.drag-over {
+  border-top: 2px solid #e0b34a;
+}
+
 .outline-item .title {
   flex: 1;
   white-space: nowrap;
@@ -113,6 +140,7 @@ body {
 .slide-card {
   width: 100%;
   aspect-ratio: 16 / 9;
+  flex-shrink: 0;
   background: #0d1b2a;
   border: 1px solid #2a3a4a;
   border-radius: 6px;

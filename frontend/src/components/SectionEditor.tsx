@@ -1,6 +1,7 @@
 import { Input, Switch, Segmented, InputNumber, Form, Tag } from "antd";
 import type { Section } from "../types";
 import { SECTION_TYPE_LABEL } from "../types";
+import { ReferencePicker } from "./ReferencePicker";
 
 const { TextArea } = Input;
 
@@ -63,22 +64,11 @@ export function SectionEditor({ section, onChange }: Props) {
             <>
               <Form.Item
                 label="经文引用"
-                extra="如：以西结书4:1-5、结4:1-5、约翰福音3:16-18"
+                extra="选择书卷与起止章节，自动逐节生成（启先读）"
               >
-                <Input
+                <ReferencePicker
                   value={section.reference}
-                  onChange={(e) => patch({ reference: e.target.value } as Partial<Section>)}
-                  placeholder="输入圣经引用，自动逐节生成"
-                />
-              </Form.Item>
-              <Form.Item label="起始角色">
-                <Segmented
-                  value={section.start_role}
-                  onChange={(v) => patch({ start_role: v as any } as Partial<Section>)}
-                  options={[
-                    { label: "启 先读", value: "qi" },
-                    { label: "应 先读", value: "ying" },
-                  ]}
+                  onChange={(ref) => patch({ reference: ref } as Partial<Section>)}
                 />
               </Form.Item>
               <Form.Item label="显示节引用">
@@ -92,11 +82,10 @@ export function SectionEditor({ section, onChange }: Props) {
 
           {section.type === "scripture" && (
             <>
-              <Form.Item label="经文引用" extra="如：约翰福音3:16-21（可跨章）">
-                <Input
+              <Form.Item label="经文引用" extra="选择书卷与起止章节（可跨章），按容量自动分页">
+                <ReferencePicker
                   value={section.reference}
-                  onChange={(e) => patch({ reference: e.target.value } as Partial<Section>)}
-                  placeholder="输入圣经引用，按容量自动分页"
+                  onChange={(ref) => patch({ reference: ref } as Partial<Section>)}
                 />
               </Form.Item>
               <Form.Item label="生成经文标题页">

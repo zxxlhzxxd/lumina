@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   App as AntApp,
   Button,
+  Dropdown,
   Empty,
   Input,
   Modal,
@@ -10,20 +11,23 @@ import {
   Space,
   Spin,
   Tag,
-  Tooltip,
 } from "antd";
+import type { MenuProps } from "antd";
 import {
+  CheckCircleOutlined,
   CopyOutlined,
   DeleteOutlined,
   DownOutlined,
   ExportOutlined,
   FileAddOutlined,
+  PlusOutlined,
   SaveOutlined,
-  UpOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { api, pickSavePath } from "./api";
-import type { Project, Section, SlideModel, TemplateSummary } from "./types";
+import type { Project, Section, SectionType, SlideModel, TemplateSummary } from "./types";
 import { SECTION_TYPE_LABEL } from "./types";
+import { makeSection } from "./sectionFactory";
 import { SectionEditor } from "./components/SectionEditor";
 import { SlidePreview } from "./components/SlidePreview";
 
@@ -38,6 +42,8 @@ function Main() {
   const [slides, setSlides] = useState<SlideModel[]>([]);
   const [newOpen, setNewOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
   const previewTimer = useRef<number | null>(null);
 
   // ---- backend bootstrap ----
@@ -113,16 +119,33 @@ function Main() {
     []
   );
 
-  const moveSection = (id: string, dir: -1 | 1) => {
+  const reorderSection = (from: number, to: number) => {
     setProject((prev) => {
       if (!prev) return prev;
-      const idx = prev.sections.findIndex((s) => s.id === id);
-      const next = idx + dir;
-      if (idx < 0 || next < 0 || next >= prev.sections.length) return prev;
+      if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= prev.sections.length ||
+        to >= prev.sections.length
+      ) {
+        return prev;
+      }
       const sections = [...prev.sections];
-      [sections[idx], sections[next]] = [sections[next], sections[idx]];
+      const [moved] = sections.splice(from, 1);
+      sections.splice(to, 0, moved);
       return { ...prev, sections };
     });
+  };
+
+  const addSection = (type: SectionType) => {
+    if (!project) return;
+    const s = makeSection(type);
+    const idx = project.sections.findIndex((x) => x.id === selectedId);
+    const sections = [...project.sections];
+    sections.splice(idx >= 0 ? idx + 1 : sections.length, 0, s);
+    setProject({ ...project, sections });
+    setSelectedId(s.id);
   };
 
   const duplicateSection = (id: string) => {
@@ -228,6 +251,40 @@ function Main() {
     }
   };
 
+  // ---- keyboard shortcuts ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
+      if (mod && key === "s") {
+        e.preventDefault();
+        handleSave();
+      } else if (mod && key === "d") {
+        e.preventDefault();
+        if (selectedId) duplicateSection(selectedId);
+        else duplicateProject();
+      } else if (mod && key === "e") {
+        e.preventDefault();
+        handleExport();
+      } else if (mod && key === "n") {
+        e.preventDefault();
+        setNewOpen(true);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+        const el = document.activeElement as HTMLElement | null;
+        const tag = el?.tagName;
+        const editable =
+          tag === "INPUT" || tag === "TEXTAREA" || !!el?.isContentEditable;
+        if (!editable) {
+          e.preventDefault();
+          deleteSection(selectedId);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, selectedId]);
+
   // ---- render ----
   if (backend === "loading") {
     return (
@@ -292,65 +349,82 @@ function Main() {
         ) : (
           <>
             <div className="panel panel-outline">
-              <div className="panel-header">段落大纲（{project.sections.length}）</div>
+              <div className="panel-header outline-head">
+                <span>段落大纲（{project.sections.length}）</span>
+                <Dropdown
+                  trigger={["click"]}
+                  menu={{
+                    items: (Object.keys(SECTION_TYPE_LABEL) as SectionType[]).map(
+                      (t) => ({ key: t, label: SECTION_TYPE_LABEL[t] })
+                    ),
+                    onClick: ({ key }) => addSection(key as SectionType),
+                  }}
+                >
+                  <Button size="small" type="primary" icon={<PlusOutlined />}>
+                    新增段落 <DownOutlined />
+                  </Button>
+                </Dropdown>
+              </div>
               <div className="outline-list">
                 {project.sections.map((s, idx) => (
-                  <div
+                  <Dropdown
                     key={s.id}
-                    className={`outline-item${s.id === selectedId ? " active" : ""}${
-                      s.enabled ? "" : " disabled"
-                    }`}
-                    onClick={() => setSelectedId(s.id)}
+                    trigger={["contextMenu"]}
+                    menu={{
+                      items: [
+                        { key: "duplicate", icon: <CopyOutlined />, label: "复制段落" },
+                        {
+                          key: "toggle",
+                          icon: s.enabled ? <StopOutlined /> : <CheckCircleOutlined />,
+                          label: s.enabled ? "停用（不导出）" : "启用",
+                        },
+                        { type: "divider" },
+                        {
+                          key: "delete",
+                          icon: <DeleteOutlined />,
+                          label: "删除段落",
+                          danger: true,
+                        },
+                      ] as MenuProps["items"],
+                      onClick: ({ key, domEvent }) => {
+                        domEvent.stopPropagation();
+                        if (key === "duplicate") duplicateSection(s.id);
+                        else if (key === "toggle") toggleSection(s.id);
+                        else if (key === "delete") deleteSection(s.id);
+                      },
+                    }}
                   >
-                    <Tag style={{ margin: 0 }}>{SECTION_TYPE_LABEL[s.type]}</Tag>
-                    <span className="title">{s.title || "（未命名）"}</span>
-                    <Space size={2} onClick={(e) => e.stopPropagation()}>
-                      <Tooltip title="上移">
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<UpOutlined />}
-                          disabled={idx === 0}
-                          onClick={() => moveSection(s.id, -1)}
-                        />
-                      </Tooltip>
-                      <Tooltip title="下移">
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<DownOutlined />}
-                          disabled={idx === project.sections.length - 1}
-                          onClick={() => moveSection(s.id, 1)}
-                        />
-                      </Tooltip>
-                      <Tooltip title="复制段落">
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<CopyOutlined />}
-                          onClick={() => duplicateSection(s.id)}
-                        />
-                      </Tooltip>
-                      <Tooltip title={s.enabled ? "停用（不导出）" : "启用"}>
-                        <Button
-                          size="small"
-                          type="text"
-                          onClick={() => toggleSection(s.id)}
-                        >
-                          {s.enabled ? "○" : "—"}
-                        </Button>
-                      </Tooltip>
-                      <Tooltip title="删除段落">
-                        <Button
-                          size="small"
-                          type="text"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={() => deleteSection(s.id)}
-                        />
-                      </Tooltip>
-                    </Space>
-                  </div>
+                    <div
+                      className={`outline-item${s.id === selectedId ? " active" : ""}${
+                        s.enabled ? "" : " disabled"
+                      }${overIndex === idx && dragIndex !== null && dragIndex !== idx ? " drag-over" : ""}${
+                        dragIndex === idx ? " dragging" : ""
+                      }`}
+                      draggable
+                      onClick={() => setSelectedId(s.id)}
+                      onDragStart={() => setDragIndex(idx)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (overIndex !== idx) setOverIndex(idx);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (dragIndex !== null) reorderSection(dragIndex, idx);
+                        setDragIndex(null);
+                        setOverIndex(null);
+                      }}
+                      onDragEnd={() => {
+                        setDragIndex(null);
+                        setOverIndex(null);
+                      }}
+                    >
+                      <span className="drag-handle" aria-hidden>
+                        ⠿
+                      </span>
+                      <Tag style={{ margin: 0 }}>{SECTION_TYPE_LABEL[s.type]}</Tag>
+                      <span className="title">{s.title || "（未命名）"}</span>
+                    </div>
+                  </Dropdown>
                 ))}
               </div>
             </div>

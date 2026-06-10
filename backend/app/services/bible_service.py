@@ -80,6 +80,18 @@ class BibleService:
             for r in rows
         ]
 
+    def get_chapters(self, book_id: int) -> List[dict]:
+        """Per-chapter verse counts for a book, ordered by chapter."""
+        conn = self._connect()
+        rows = conn.execute(
+            "SELECT chapter, COUNT(*) AS verse_count FROM verses "
+            "WHERE book_id=? GROUP BY chapter ORDER BY chapter",
+            (book_id,),
+        ).fetchall()
+        return [
+            {"chapter": r["chapter"], "verse_count": r["verse_count"]} for r in rows
+        ]
+
     def _match_book(self, text: str):
         self._ensure_index()
         for alias, book_id, name in self._aliases:

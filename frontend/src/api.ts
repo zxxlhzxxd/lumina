@@ -2,6 +2,8 @@
 // backend binds to a random local port), with a fallback for plain-browser dev.
 // The UI depends only on these functions, never on backend internals.
 import type {
+  Book,
+  ChapterInfo,
   Project,
   SlideModel,
   TemplateSummary,
@@ -129,6 +131,11 @@ export const api = {
       "/bible/parse-ref",
       { ref }
     ),
+
+  listBooks: () => request<Book[]>("GET", "/bible/books"),
+
+  listChapters: (bookId: number) =>
+    request<ChapterInfo[]>("GET", `/bible/books/${bookId}/chapters`),
 };
 
 export async function pickSavePath(defaultName: string): Promise<string | null> {
