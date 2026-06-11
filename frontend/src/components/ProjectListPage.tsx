@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { App as AntApp, Button, Empty, Modal, Space, Spin, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
-import { CopyOutlined, DeleteOutlined, FileAddOutlined } from "@ant-design/icons";
+import { App as AntApp, Button, Modal, Spin, Tooltip } from "antd";
+import {
+  CopyOutlined,
+  DeleteOutlined,
+  FileAddOutlined,
+  FolderOpenOutlined,
+} from "@ant-design/icons";
 import { api } from "../api";
 import type { ProjectSummary } from "../types";
 
@@ -78,58 +82,6 @@ export function ProjectListPage({ onOpen, onNew, refreshKey = 0 }: Props) {
     });
   };
 
-  const columns: ColumnsType<ProjectSummary> = [
-    {
-      title: "工程名称",
-      dataIndex: "name",
-      key: "name",
-      render: (name: string) => name || "（未命名）",
-    },
-    {
-      title: "段落数",
-      dataIndex: "section_count",
-      key: "section_count",
-      width: 90,
-      align: "center",
-    },
-    {
-      title: "最近更新",
-      dataIndex: "updated_at",
-      key: "updated_at",
-      width: 180,
-      render: (v?: string) => formatUpdatedAt(v),
-    },
-    {
-      title: "操作",
-      key: "actions",
-      width: 200,
-      render: (_, row) => (
-        <Space size="small" onClick={(e) => e.stopPropagation()}>
-          <Button type="link" size="small" onClick={() => onOpen(row.id)}>
-            打开
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<CopyOutlined />}
-            onClick={(e) => handleDuplicate(row.id, e)}
-          >
-            复制
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={(e) => handleDelete(row.id, row.name, e)}
-          >
-            删除
-          </Button>
-        </Space>
-      ),
-    },
-  ];
-
   if (loading) {
     return (
       <div className="center-state project-list-page">
@@ -138,36 +90,77 @@ export function ProjectListPage({ onOpen, onNew, refreshKey = 0 }: Props) {
     );
   }
 
-  if (projects.length === 0) {
-    return (
-      <div className="center-state project-list-page">
-        <Empty description="还没有工程" />
-        <Button type="primary" icon={<FileAddOutlined />} onClick={onNew}>
-          从模板新建礼拜
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="project-list-page">
       <div className="project-list-header">
         <h2 className="project-list-title">礼拜工程</h2>
-        <Button type="primary" icon={<FileAddOutlined />} onClick={onNew}>
-          新建
-        </Button>
       </div>
-      <Table
-        className="project-list-table"
-        columns={columns}
-        dataSource={projects}
-        rowKey="id"
-        pagination={false}
-        onRow={(row) => ({
-          onClick: () => onOpen(row.id),
-          className: "project-list-row",
-        })}
-      />
+
+      <div className="project-grid">
+        <button type="button" className="project-card project-card--new" onClick={onNew}>
+          <FileAddOutlined className="project-card__new-icon" />
+          <span className="project-card__new-label">新建</span>
+        </button>
+
+        {projects.map((p) => (
+          <div
+            key={p.id}
+            className="project-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpen(p.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpen(p.id);
+              }
+            }}
+          >
+            <div className="project-card__thumb">
+              <FolderOpenOutlined />
+            </div>
+            <div className="project-card__body">
+              <div className="project-card__name" title={p.name || "（未命名）"}>
+                {p.name || "（未命名）"}
+              </div>
+              <div className="project-card__meta">
+                <span className="project-card__badge">{p.section_count} 段</span>
+                {p.date && <span className="project-card__date">{p.date}</span>}
+              </div>
+              <div className="project-card__updated">
+                更新于 {formatUpdatedAt(p.updated_at)}
+              </div>
+            </div>
+            <div className="project-card__actions" onClick={(e) => e.stopPropagation()}>
+              <Tooltip title="打开">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<FolderOpenOutlined />}
+                  onClick={() => onOpen(p.id)}
+                />
+              </Tooltip>
+              <Tooltip title="复制">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={(e) => handleDuplicate(p.id, e)}
+                />
+              </Tooltip>
+              <Tooltip title="删除">
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={(e) => handleDelete(p.id, p.name, e)}
+                />
+              </Tooltip>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
