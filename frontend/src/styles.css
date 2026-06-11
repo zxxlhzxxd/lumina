@@ -238,12 +238,130 @@ body {
   color: #e0b34a;
 }
 
-.project-list-table .project-list-row {
-  cursor: pointer;
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
 }
 
-.project-list-table .project-list-row:hover td {
-  background: #262626 !important;
+.project-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #1d1d1d;
+  border: 1px solid #303030;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.project-card:hover {
+  border-color: #e0b34a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.project-card:focus-visible {
+  outline: none;
+  border-color: #e0b34a;
+}
+
+.project-card__thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110px;
+  background: #0d1b2a;
+  border-bottom: 1px solid #2a3a4a;
+  color: #e0b34a;
+  font-size: 34px;
+}
+
+.project-card__body {
+  padding: 12px 14px;
+}
+
+.project-card__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f5f5f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.project-card__badge {
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #e0b34a;
+  background: rgba(224, 179, 74, 0.12);
+  border: 1px solid rgba(224, 179, 74, 0.35);
+  border-radius: 10px;
+}
+
+.project-card__date {
+  font-size: 12px;
+  color: #9fb3c8;
+}
+
+.project-card__updated {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #7d8794;
+}
+
+.project-card__actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(20, 20, 20, 0.72);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.project-card:hover .project-card__actions,
+.project-card:focus-within .project-card__actions {
+  opacity: 1;
+}
+
+.project-card--new {
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 200px;
+  background: transparent;
+  border-style: dashed;
+  color: #9fb3c8;
+}
+
+.project-card--new:hover {
+  color: #e0b34a;
+  box-shadow: none;
+}
+
+.project-card--new .project-card__new-icon {
+  font-size: 32px;
+}
+
+.project-card--new .project-card__new-label {
+  font-size: 14px;
 }
 
 .inline-preview-grid {
