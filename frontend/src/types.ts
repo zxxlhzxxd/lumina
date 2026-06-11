@@ -13,12 +13,33 @@ export type ReadingRole = "qi" | "ying";
 export type PlayMode = "once" | "loop";
 export type SlideSize = "16:9" | "4:3";
 
+export interface TextStyle {
+  font_family?: string | null;
+  font_size?: number | null;
+  color?: string | null;
+  bold?: boolean | null;
+  italic?: boolean | null;
+  align?: "left" | "center" | "right" | null;
+  line_spacing?: number | null;
+}
+
+export interface SectionStyle {
+  background_color?: string | null;
+  background_image?: string | null;
+  background_video?: string | null;
+  body?: TextStyle | null;
+  title?: TextStyle | null;
+  label?: TextStyle | null;
+  margin?: number | null;
+}
+
 export interface SectionBase {
   id: string;
   type: SectionType;
   title: string;
   enabled: boolean;
   notes: string;
+  style?: SectionStyle | null;
 }
 
 export interface CoverSection extends SectionBase {
@@ -128,6 +149,64 @@ export interface TemplateSummary {
   section_count: number;
 }
 
+export interface HymnLyricSection {
+  order: number;
+  label: string;
+  text: string;
+}
+
+export interface Hymn {
+  id: string;
+  title: string;
+  author: string;
+  number: string;
+  source: string;
+  builtin: boolean;
+  sections: HymnLyricSection[];
+}
+
+export interface HymnSummary {
+  id: string;
+  title: string;
+  author: string;
+  number: string;
+  builtin: boolean;
+}
+
+export interface LiturgyText {
+  id: string;
+  title: string;
+  builtin: boolean;
+  paragraphs: string[];
+}
+
+export interface LiturgyTextSummary {
+  id: string;
+  title: string;
+  builtin: boolean;
+  paragraph_count: number;
+}
+
+export interface Theme {
+  id: string;
+  name: string;
+  builtin: boolean;
+  default_style?: SectionStyle | null;
+  type_styles: Record<string, SectionStyle>;
+}
+
+export interface ThemeSummary {
+  id: string;
+  name: string;
+  builtin: boolean;
+  is_default: boolean;
+}
+
+export interface ThemeListResponse {
+  default_id: string;
+  themes: ThemeSummary[];
+}
+
 export interface SlideModel {
   kind: string;
   section_id: string;
@@ -138,6 +217,7 @@ export interface SlideModel {
   label: string | null;
   reference: string | null;
   body: string | null;
+  style?: SectionStyle | null;
 }
 
 export interface ValidationIssue {

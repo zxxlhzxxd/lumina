@@ -106,6 +106,41 @@ ipcMain.handle("dialog:savePptx", async (_evt, defaultName) => {
   return result.canceled ? null : result.filePath;
 });
 
+ipcMain.handle("dialog:pickMedia", async (_evt, kind) => {
+  const filterMap = {
+    image: { name: "图片", extensions: ["jpg", "jpeg", "png", "gif", "bmp", "webp"] },
+    audio: { name: "音频", extensions: ["mp3", "wav", "m4a", "aac", "ogg"] },
+    video: { name: "视频", extensions: ["mp4", "mov", "m4v", "webm"] },
+  };
+  const filters = filterMap[kind]
+    ? [filterMap[kind]]
+    : [{ name: "媒体文件", extensions: ["jpg", "jpeg", "png", "mp3", "wav", "mp4"] }];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "选择媒体文件",
+    properties: ["openFile"],
+    filters,
+  });
+  return result.canceled || !result.filePaths.length ? null : result.filePaths[0];
+});
+
+ipcMain.handle("dialog:exportTemplate", async (_evt, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "导出流程模板",
+    defaultPath: defaultName || "流程模板.lumina-template",
+    filters: [{ name: "Lumina 模板", extensions: ["lumina-template"] }],
+  });
+  return result.canceled ? null : result.filePath;
+});
+
+ipcMain.handle("dialog:importTemplate", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "导入流程模板",
+    properties: ["openFile"],
+    filters: [{ name: "Lumina 模板", extensions: ["lumina-template"] }],
+  });
+  return result.canceled || !result.filePaths.length ? null : result.filePaths[0];
+});
+
 app.whenReady().then(async () => {
   try {
     await startBackend();

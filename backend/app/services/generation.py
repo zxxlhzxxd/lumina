@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from app.domain.bible import BibleReference, Verse
 from app.domain.enums import ReadingRole, SectionType
-from app.domain.project import Project
+from app.domain.project import Project, Theme
 from app.domain.sections import (
     AnnouncementSection,
     CoverSection,
@@ -24,6 +24,7 @@ from app.domain.sections import (
     Section,
 )
 from app.services.bible_service import bible_service
+from app.services.styling import resolve_style
 
 # (raw_ref) -> (reference, verses)
 PassageResolver = Callable[[str], Tuple[BibleReference, List[Verse]]]
@@ -39,6 +40,8 @@ class SlideModel(BaseModel):
     label: Optional[str] = None  # 启 / 应
     reference: Optional[str] = None
     body: Optional[str] = None
+    # Resolved (cascaded) style for this slide; consumed by preview + PPTX.
+    style: Optional[dict] = None
 
 
 _ROLE_LABEL = {ReadingRole.QI: "启", ReadingRole.YING: "应"}
@@ -252,11 +255,19 @@ def build_section_slides(section: Section, resolve: Optional[PassageResolver] = 
     return []
 
 
-def build_slides(project: Project, resolve: Optional[PassageResolver] = None) -> List[SlideModel]:
+def build_slides(
+    project: Project,
+    theme: Optional[Theme] = None,
+    resolve: Optional[PassageResolver] = None,
+) -> List[SlideModel]:
     resolve = resolve or bible_service.get_passage
     slides: List[SlideModel] = []
     for section in project.sections:
         if not section.enabled:
             continue
-        slides.extend(build_section_slides(section, resolve))
+        section_slides = build_section_slides(section, resolve)
+        style = resolve_style(theme, section).model_dump()
+        for sm in section_slides:
+            sm.style = style
+        slides.extend(section_slides)
     return slides

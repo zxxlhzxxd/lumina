@@ -30,12 +30,29 @@ class Settings:
             os.environ.get("LUMINA_BIBLE_DB", str(self.app_data_dir / "bible.sqlite"))
         )
 
+        # Content library (hymns + liturgy texts); seeded with built-ins on first run.
+        self.library_db_path: Path = Path(
+            os.environ.get("LUMINA_LIBRARY_DB", str(self.data_dir / "library.db"))
+        )
+
+        # Working stores: each project/template lives in its own directory holding
+        # `project.json`/`template.json` + a `media/` subdirectory.
         self.projects_dir: Path = self.data_dir / "projects"
         self.templates_dir: Path = self.data_dir / "templates"
+        self.themes_dir: Path = self.data_dir / "themes"
         self.exports_dir: Path = self.data_dir / "exports"
 
+        # Small JSON file for user preferences (e.g. default theme id).
+        self.prefs_path: Path = self.data_dir / "preferences.json"
+
     def ensure_dirs(self) -> None:
-        for d in (self.data_dir, self.projects_dir, self.templates_dir, self.exports_dir):
+        for d in (
+            self.data_dir,
+            self.projects_dir,
+            self.templates_dir,
+            self.themes_dir,
+            self.exports_dir,
+        ):
             d.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,13 +1,21 @@
-import { Input, Switch, Segmented, InputNumber, Form, Tag } from "antd";
-import type { Section } from "../types";
+import { useState } from "react";
+import { Button, Input, Switch, Segmented, InputNumber, Form, Tag } from "antd";
+import { BookOutlined } from "@ant-design/icons";
+import type { Hymn, LiturgyText, Section, SectionStyle } from "../types";
 import { SECTION_TYPE_LABEL } from "../types";
 import { ReferencePicker } from "./ReferencePicker";
+import { MediaPicker } from "./MediaPicker";
+import { StylePanel } from "./StylePanel";
+import { HymnLibraryModal } from "./HymnLibraryModal";
+import { LiturgyLibraryModal } from "./LiturgyLibraryModal";
 
 const { TextArea } = Input;
 
 interface Props {
   section: Section;
+  projectId: string | null;
   onChange: (patch: Partial<Section>) => void;
+  onSetTypeDefault: (style: SectionStyle) => void;
 }
 
 // blank-line separated blocks <-> string[]
@@ -20,8 +28,32 @@ const linesToText = (lines: string[]) => lines.join("\n");
 const textToLines = (text: string) =>
   text.split("\n").map((s) => s.trim()).filter(Boolean);
 
-export function SectionEditor({ section, onChange }: Props) {
+export function SectionEditor({ section, projectId, onChange, onSetTypeDefault }: Props) {
   const patch = (p: Partial<Section>) => onChange(p);
+  const [hymnLibOpen, setHymnLibOpen] = useState(false);
+  const [liturgyLibOpen, setLiturgyLibOpen] = useState(false);
+
+  const insertHymn = (hymn: Hymn) => {
+    patch({
+      hymn_id: hymn.id || null,
+      song_title: hymn.title,
+      author: hymn.author,
+      hymn_number: hymn.number,
+      lyrics: hymn.sections.map((s) => s.text),
+    } as Partial<Section>);
+    setHymnLibOpen(false);
+  };
+
+  const insertLiturgy = (text: LiturgyText) => {
+    patch({
+      liturgy_id: text.id || null,
+      paragraphs: text.paragraphs,
+    } as Partial<Section>);
+    if (!section.title && text.title) {
+      patch({ title: text.title } as Partial<Section>);
+    }
+    setLiturgyLibOpen(false);
+  };
 
   return (
     <div>
@@ -113,12 +145,20 @@ export function SectionEditor({ section, onChange }: Props) {
 
           {section.type === "liturgy_text" && (
             <>
+              <Form.Item>
+                <Button icon={<BookOutlined />} onClick={() => setLiturgyLibOpen(true)}>
+                  从礼文库选择
+                </Button>
+              </Form.Item>
               <Form.Item label="礼文内容" extra="空行分隔不同段落">
                 <TextArea
                   rows={10}
                   value={blocksToText(section.paragraphs)}
                   onChange={(e) =>
-                    patch({ paragraphs: textToBlocks(e.target.value) } as Partial<Section>)
+                    patch({
+                      paragraphs: textToBlocks(e.target.value),
+                      liturgy_id: null,
+                    } as Partial<Section>)
                   }
                   placeholder="输入礼文段落，空行分段"
                 />
@@ -136,6 +176,11 @@ export function SectionEditor({ section, onChange }: Props) {
 
           {section.type === "hymn" && (
             <>
+              <Form.Item>
+                <Button icon={<BookOutlined />} onClick={() => setHymnLibOpen(true)}>
+                  从诗歌库选择
+                </Button>
+              </Form.Item>
               <Form.Item label="诗歌名">
                 <Input
                   value={section.song_title}
@@ -153,7 +198,10 @@ export function SectionEditor({ section, onChange }: Props) {
                   rows={10}
                   value={blocksToText(section.lyrics)}
                   onChange={(e) =>
-                    patch({ lyrics: textToBlocks(e.target.value) } as Partial<Section>)
+                    patch({
+                      lyrics: textToBlocks(e.target.value),
+                      hymn_id: null,
+                    } as Partial<Section>)
                   }
                 />
               </Form.Item>
@@ -197,7 +245,15 @@ export function SectionEditor({ section, onChange }: Props) {
                   placeholder="如：请起立默祷"
                 />
               </Form.Item>
-              <Form.Item label="播放模式（音频，阶段二接入）">
+              <Form.Item label="绑定音频" extra="按单击顺序播放将在后续版本接入">
+                <MediaPicker
+                  kind="audio"
+                  projectId={projectId}
+                  value={section.audio_ref}
+                  onChange={(ref) => patch({ audio_ref: ref } as Partial<Section>)}
+                />
+              </Form.Item>
+              <Form.Item label="播放模式（音频）">
                 <Segmented
                   value={section.play_mode}
                   onChange={(v) => patch({ play_mode: v as any } as Partial<Section>)}
@@ -207,10 +263,36 @@ export function SectionEditor({ section, onChange }: Props) {
                   ]}
                 />
               </Form.Item>
+              <Form.Item label="背景视频" extra="导出仅随容器携带，播放将在后续版本接入">
+                <MediaPicker
+                  kind="video"
+                  projectId={projectId}
+                  value={section.video_ref}
+                  onChange={(ref) => patch({ video_ref: ref } as Partial<Section>)}
+                />
+              </Form.Item>
             </>
           )}
         </Form>
+
+        <StylePanel
+          section={section}
+          projectId={projectId}
+          onChange={onChange}
+          onSetTypeDefault={onSetTypeDefault}
+        />
       </div>
+
+      <HymnLibraryModal
+        open={hymnLibOpen}
+        onClose={() => setHymnLibOpen(false)}
+        onInsert={insertHymn}
+      />
+      <LiturgyLibraryModal
+        open={liturgyLibOpen}
+        onClose={() => setLiturgyLibOpen(false)}
+        onInsert={insertLiturgy}
+      />
     </div>
   );
 }
