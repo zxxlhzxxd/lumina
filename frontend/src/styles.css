@@ -145,53 +145,49 @@ body {
   border: 1px solid #2a3a4a;
   border-radius: 6px;
   margin-bottom: 10px;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
   position: relative;
   overflow: hidden;
 }
 
-.slide-card .label {
+.slide-card__layer {
   position: absolute;
-  top: 8px;
-  left: 12px;
-  color: #e0b34a;
-  font-weight: 700;
-  font-size: 18px;
+  inset: 0;
 }
 
-.slide-card .title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #f5f5f5;
-}
-
-.slide-card .subtitle,
-.slide-card .reference {
-  font-size: 12px;
-  color: #9fb3c8;
-  margin-top: 6px;
-}
-
-.slide-card .reference {
+.slide-card__text {
   position: absolute;
-  bottom: 8px;
-}
-
-.slide-card .body {
-  font-size: 14px;
-  color: #f0f0f0;
+  box-sizing: border-box;
   white-space: pre-wrap;
-  line-height: 1.4;
+  word-wrap: break-word;
+  overflow: hidden;
+  line-height: 1.15;
 }
 
-.slide-card.big .body {
-  font-size: 17px;
+.style-workspace {
+  margin-top: 20px;
+  padding: 16px 18px;
+  background: #1c1c16;
+  border: 1px solid #3a3a2a;
+  border-radius: 8px;
+}
+
+.style-workspace__header {
+  font-size: 13px;
   font-weight: 600;
+  color: #e0b34a;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #3a3a2a;
+}
+
+.style-workspace__text-role {
+  margin-bottom: 12px;
+}
+
+.style-workspace__role-label {
+  color: #9fb3c8;
+  font-size: 12px;
+  margin-bottom: 6px;
 }
 
 .editor-section + .editor-section {

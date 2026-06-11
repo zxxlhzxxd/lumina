@@ -14,6 +14,7 @@ const { TextArea } = Input;
 interface Props {
   section: Section;
   projectId: string | null;
+  effectiveStyle: SectionStyle;
   onChange: (patch: Partial<Section>) => void;
   onSetTypeDefault: (style: SectionStyle) => void;
 }
@@ -28,7 +29,7 @@ const linesToText = (lines: string[]) => lines.join("\n");
 const textToLines = (text: string) =>
   text.split("\n").map((s) => s.trim()).filter(Boolean);
 
-export function SectionEditor({ section, projectId, onChange, onSetTypeDefault }: Props) {
+export function SectionEditor({ section, projectId, effectiveStyle, onChange, onSetTypeDefault }: Props) {
   const patch = (p: Partial<Section>) => onChange(p);
   const [hymnLibOpen, setHymnLibOpen] = useState(false);
   const [liturgyLibOpen, setLiturgyLibOpen] = useState(false);
@@ -278,6 +279,7 @@ export function SectionEditor({ section, projectId, onChange, onSetTypeDefault }
         <StylePanel
           section={section}
           projectId={projectId}
+          effectiveStyle={effectiveStyle}
           onChange={onChange}
           onSetTypeDefault={onSetTypeDefault}
         />

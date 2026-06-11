@@ -34,10 +34,12 @@ import type {
   SectionType,
   SlideModel,
   TemplateSummary,
+  Theme,
   ThemeSummary,
 } from "./types";
 import { SECTION_TYPE_LABEL } from "./types";
 import { makeSection } from "./sectionFactory";
+import { resolveStyle } from "./styleResolve";
 import { ProjectListPage } from "./components/ProjectListPage";
 import { SectionEditor } from "./components/SectionEditor";
 import { SlidePreview } from "./components/SlidePreview";
@@ -59,6 +61,7 @@ function Main() {
   const [themeMgrOpen, setThemeMgrOpen] = useState(false);
   const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeSummary[]>([]);
+  const [currentTheme, setCurrentTheme] = useState<Theme | null>(null);
   const [exporting, setExporting] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -88,6 +91,17 @@ function Main() {
       setTemplates(await api.listTemplates());
     } catch {
       // non-fatal
+    }
+  }, []);
+
+  const loadProjectTheme = useCallback(async (themeId: string | null | undefined) => {
+    try {
+      const list = await api.listThemes();
+      const id = themeId || list.default_id;
+      const theme = await api.getTheme(id);
+      setCurrentTheme(theme);
+    } catch {
+      setCurrentTheme(null);
     }
   }, []);
 
@@ -138,9 +152,25 @@ function Main() {
     [project, selectedId]
   );
 
-  const selectedSlides = useMemo(
-    () => slides.filter((s) => s.section_id === selectedId),
-    [slides, selectedId]
+  const selectedEffectiveStyle = useMemo(() => {
+    if (!selectedSection) return {};
+    return resolveStyle(currentTheme, selectedSection);
+  }, [selectedSection, currentTheme]);
+
+  /** Re-resolve styles client-side so style edits reflect instantly in preview. */
+  const displaySlides = useMemo(() => {
+    if (!project) return slides;
+    const sectionById = new Map(project.sections.map((s) => [s.id, s]));
+    return slides.map((sl) => {
+      const section = sectionById.get(sl.section_id);
+      if (!section) return sl;
+      return { ...sl, style: resolveStyle(currentTheme, section) };
+    });
+  }, [slides, project, currentTheme]);
+
+  const selectedDisplaySlides = useMemo(
+    () => displaySlides.filter((s) => s.section_id === selectedId),
+    [displaySlides, selectedId]
   );
 
   const guardNavigation = useCallback(
@@ -161,6 +191,7 @@ function Main() {
       setSelectedId(null);
       setSavedSnapshot(null);
       setDirty(false);
+      setCurrentTheme(null);
       setScreen("list");
       setListRefreshKey((k) => k + 1);
     });
@@ -173,12 +204,13 @@ function Main() {
         setProject(p);
         setSelectedId(p.sections[0]?.id ?? null);
         markProjectClean(p);
+        await loadProjectTheme(p.theme_id);
         setScreen("editor");
       } catch (e: any) {
         message.error(e.message ?? "加载失败");
       }
     },
-    [markProjectClean, message]
+    [loadProjectTheme, markProjectClean, message]
   );
 
   const requestNewProject = useCallback(() => {
@@ -196,6 +228,7 @@ function Main() {
       setProject(p);
       setSelectedId(p.sections[0]?.id ?? null);
       markProjectClean(p);
+      await loadProjectTheme(p.theme_id);
       setScreen("editor");
       setNewOpen(false);
       message.success("已创建工程");
@@ -302,19 +335,15 @@ function Main() {
     }
   };
 
-  const refreshPreview = useCallback(async () => {
-    if (!project) return;
-    try {
-      const res = await api.previewProject(project);
-      setSlides(res.slides);
-    } catch {
-      // keep last good preview
-    }
-  }, [project]);
-
   const changeTheme = async (themeId: string) => {
     if (!project) return;
     setProject({ ...project, theme_id: themeId });
+    try {
+      const theme = await api.getTheme(themeId);
+      setCurrentTheme(theme);
+    } catch {
+      await loadProjectTheme(themeId);
+    }
   };
 
   const setTypeDefaultStyle = async (sectionType: SectionType, style: SectionStyle) => {
@@ -331,8 +360,8 @@ function Main() {
         type_styles: { ...theme.type_styles, [sectionType]: style },
       };
       await api.updateTheme(theme.id, next);
+      setCurrentTheme(next);
       message.success("已写入当前主题的本类型默认样式");
-      await refreshPreview();
     } catch (e: any) {
       message.error(e.message ?? "写入主题失败");
     }
@@ -657,19 +686,24 @@ function Main() {
                     key={selectedSection.id}
                     section={selectedSection}
                     projectId={project.id}
+                    effectiveStyle={selectedEffectiveStyle}
                     onChange={(patch) => updateSection(selectedSection.id, patch)}
                     onSetTypeDefault={(style) =>
                       setTypeDefaultStyle(selectedSection.type, style)
                     }
                   />
-                  {selectedSlides.length > 0 && (
+                  {selectedDisplaySlides.length > 0 && (
                     <>
                       <div className="panel-header" style={{ paddingLeft: 0, marginTop: 16 }}>
-                        本段落将生成 {selectedSlides.length} 页
+                        本段落将生成 {selectedDisplaySlides.length} 页
                       </div>
                       <div className="inline-preview-grid">
-                        {selectedSlides.map((sl, i) => (
-                          <SlidePreview key={i} slide={sl} projectId={project.id} />
+                        {selectedDisplaySlides.map((sl) => (
+                          <SlidePreview
+                            key={`${sl.section_id}-${sl.index}`}
+                            slide={sl}
+                            projectId={project.id}
+                          />
                         ))}
                       </div>
                     </>
@@ -682,10 +716,14 @@ function Main() {
 
             <div className="panel panel-preview">
               <div className="panel-header" style={{ paddingLeft: 4 }}>
-                整体预览（{slides.length} 页）
+                整体预览（{displaySlides.length} 页）
               </div>
-              {slides.map((sl, i) => (
-                <SlidePreview key={i} slide={sl} projectId={project.id} />
+              {displaySlides.map((sl) => (
+                <SlidePreview
+                  key={`${sl.section_id}-${sl.index}`}
+                  slide={sl}
+                  projectId={project.id}
+                />
               ))}
             </div>
           </>
@@ -705,7 +743,7 @@ function Main() {
         onClose={() => setThemeMgrOpen(false)}
         onChanged={() => {
           refreshThemes();
-          refreshPreview();
+          if (project?.theme_id) loadProjectTheme(project.theme_id);
         }}
       />
 

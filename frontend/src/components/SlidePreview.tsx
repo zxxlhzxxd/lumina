@@ -1,25 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { mediaUrl } from "../api";
-import type { SlideModel, TextStyle } from "../types";
-
-// Approximate (HTML/CSS) preview of a generated slide. Mirrors the PPTX layout
-// and the resolved theme/section style closely enough to be useful;
-// high-fidelity rendering is a later phase.
-
-// Slides are ~13.3in wide; the preview card is ~170px. Scale point sizes down so
-// the relative typography matches what the export will produce.
-const FONT_SCALE = 0.34;
-
-function textCss(ts?: TextStyle | null, fallbackPx?: number): React.CSSProperties {
-  const css: React.CSSProperties = {};
-  if (ts?.font_size) css.fontSize = Math.max(8, ts.font_size * FONT_SCALE);
-  else if (fallbackPx) css.fontSize = fallbackPx;
-  if (ts?.color) css.color = ts.color;
-  if (ts?.bold != null) css.fontWeight = ts.bold ? 700 : 400;
-  if (ts?.align) css.textAlign = ts.align;
-  if (ts?.font_family) css.fontFamily = ts.font_family;
-  return css;
-}
+import {
+  boxStyle,
+  computePreviewScale,
+  slideTextBoxes,
+} from "../previewLayout";
+import type { SlideModel } from "../types";
 
 export function SlidePreview({
   slide,
@@ -28,11 +14,8 @@ export function SlidePreview({
   slide: SlideModel;
   projectId?: string | null;
 }) {
-  const isTitle =
-    slide.kind === "cover" ||
-    slide.kind === "scripture_title" ||
-    slide.kind === "hymn_title";
-  const big = slide.kind === "responsive_verse" || slide.section_type === "hymn";
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
   const style = slide.style ?? null;
 
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -51,7 +34,17 @@ export function SlidePreview({
     };
   }, [style?.background_image, projectId]);
 
-  const cardStyle: React.CSSProperties = {};
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setScale(computePreviewScale(el.clientWidth));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const cardStyle: CSSProperties = {};
   if (style?.background_color) cardStyle.background = style.background_color;
   if (bgUrl) {
     cardStyle.backgroundImage = `url("${bgUrl}")`;
@@ -59,48 +52,21 @@ export function SlidePreview({
     cardStyle.backgroundPosition = "center";
   }
 
+  const boxes = slideTextBoxes(slide);
+
   return (
-    <div className={`slide-card${big ? " big" : ""}`} style={cardStyle}>
-      {slide.label && (
-        <div className="label" style={textCss(style?.label)}>
-          {slide.label}
-        </div>
-      )}
-      {isTitle ? (
-        <>
-          <div className="title" style={textCss(style?.title)}>
-            {slide.title || "（未填写标题）"}
+    <div ref={containerRef} className="slide-card" style={cardStyle}>
+      <div className="slide-card__layer">
+        {boxes.map((box, i) => (
+          <div
+            key={i}
+            className="slide-card__text"
+            style={boxStyle(box, style, scale)}
+          >
+            {box.text}
           </div>
-          {slide.subtitle && (
-            <div className="subtitle" style={textCss(style?.body)}>
-              {slide.subtitle}
-            </div>
-          )}
-          {slide.body && (
-            <div className="subtitle" style={textCss(style?.body)}>
-              {slide.body}
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          {slide.title && (
-            <div className="title" style={{ marginBottom: 6, ...textCss(style?.title) }}>
-              {slide.title}
-            </div>
-          )}
-          {slide.body && (
-            <div className="body" style={textCss(style?.body)}>
-              {slide.body}
-            </div>
-          )}
-          {slide.reference && (
-            <div className="reference" style={textCss(style?.body)}>
-              {slide.reference}
-            </div>
-          )}
-        </>
-      )}
+        ))}
+      </div>
     </div>
   );
 }

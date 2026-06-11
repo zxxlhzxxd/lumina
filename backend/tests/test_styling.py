@@ -42,3 +42,5 @@ def test_no_theme_returns_section_only():
     section = HymnSection(style=SectionStyle(background_color="#123456"))
     resolved = resolve_style(None, section)
     assert resolved.background_color == "#123456"
+    assert resolved.body is None or resolved.body.font_size is None
+    assert resolved.title is None or resolved.title.font_size is None
