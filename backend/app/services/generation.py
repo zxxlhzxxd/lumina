@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from app.domain.bible import BibleReference, Verse
 from app.domain.enums import ReadingRole, SectionType
-from app.domain.project import Project, Theme
+from app.domain.project import Project
 from app.domain.sections import (
     AnnouncementSection,
     CoverSection,
@@ -257,7 +257,6 @@ def build_section_slides(section: Section, resolve: Optional[PassageResolver] = 
 
 def build_slides(
     project: Project,
-    theme: Optional[Theme] = None,
     resolve: Optional[PassageResolver] = None,
 ) -> List[SlideModel]:
     resolve = resolve or bible_service.get_passage
@@ -266,7 +265,7 @@ def build_slides(
         if not section.enabled:
             continue
         section_slides = build_section_slides(section, resolve)
-        style = resolve_style(theme, section).model_dump()
+        style = resolve_style(section).model_dump()
         for sm in section_slides:
             sm.style = style
         slides.extend(section_slides)

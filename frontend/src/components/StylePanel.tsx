@@ -7,13 +7,12 @@ interface Props {
   projectId: string | null;
   effectiveStyle: SectionStyle;
   onChange: (patch: Partial<Section>) => void;
-  onSetTypeDefault: (style: SectionStyle) => void;
 }
 
 type TextRole = "body" | "title" | "label";
 
 const FONT_OPTIONS = [
-  { label: "继承主题", value: "" },
+  { label: "使用默认", value: "" },
   { label: "微软雅黑", value: "Microsoft YaHei" },
   { label: "宋体", value: "SimSun" },
   { label: "黑体", value: "SimHei" },
@@ -53,7 +52,7 @@ function ColorField({
           </Button>
         </>
       ) : (
-        <span style={{ color: "#6b6b6b", fontSize: 12 }}>（继承主题）</span>
+        <span style={{ color: "#6b6b6b", fontSize: 12 }}>（使用默认）</span>
       )}
     </Space>
   );
@@ -68,7 +67,7 @@ function inheritFontSizeHint(
   if (override != null) return "";
   const inherited = effectiveStyle[role]?.font_size;
   if (inherited == null) return "";
-  return `继承主题：${inherited}pt`;
+  return `默认：${inherited}pt`;
 }
 
 export function StylePanel({
@@ -76,7 +75,6 @@ export function StylePanel({
   projectId,
   effectiveStyle,
   onChange,
-  onSetTypeDefault,
 }: Props) {
   const style: SectionStyle = section.style ?? {};
 
@@ -173,9 +171,6 @@ export function StylePanel({
             style={{ width: 120 }}
           />
         </Form.Item>
-        <Button onClick={() => onSetTypeDefault(style)}>
-          设为本类型默认（写入当前主题）
-        </Button>
       </Form>
     </div>
   );

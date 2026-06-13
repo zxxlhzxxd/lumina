@@ -149,6 +149,16 @@ body {
   overflow: hidden;
 }
 
+.slide-card.clickable {
+  cursor: pointer;
+}
+
+.slide-card.clickable:hover,
+.slide-card.clickable:focus-visible {
+  border-color: #e0b34a;
+  outline: none;
+}
+
 .slide-card__layer {
   position: absolute;
   inset: 0;

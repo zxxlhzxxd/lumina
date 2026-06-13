@@ -1,13 +1,12 @@
 """Tests for section -> slide expansion using a stub passage resolver."""
 from app.domain.bible import BibleReference, RangeRef, Verse, VerseRef
-from app.domain.project import Project, Theme
+from app.domain.project import Project
 from app.domain.sections import (
     CoverSection,
     LiturgyTextSection,
     ResponsiveReadingSection,
     ScriptureSection,
 )
-from app.domain.style import SectionStyle, TextStyle
 from app.services.generation import build_section_slides, build_slides
 
 
@@ -60,13 +59,8 @@ def test_liturgy_pagination():
 
 
 def test_build_slides_injects_resolved_style():
-    theme = Theme(
-        default_style=SectionStyle(
-            background_color="#101010", body=TextStyle(font_size=33)
-        )
-    )
     project = Project(sections=[CoverSection(main_title="标题")])
-    slides = build_slides(project, theme)
+    slides = build_slides(project)
     assert slides[0].style is not None
-    assert slides[0].style["background_color"] == "#101010"
-    assert slides[0].style["body"]["font_size"] == 33
+    assert slides[0].style["background_color"] == "#F7F3E9"
+    assert slides[0].style["body"]["font_size"] == 32

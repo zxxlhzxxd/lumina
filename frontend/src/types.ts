@@ -113,7 +113,6 @@ export interface Project {
   name: string;
   date: string | null;
   slide_size: SlideSize;
-  theme_id: string | null;
   sections: Section[];
   meta: { pastor: string; theme_scripture: string; notes: string };
   created_at?: string;
@@ -185,26 +184,6 @@ export interface LiturgyTextSummary {
   title: string;
   builtin: boolean;
   paragraph_count: number;
-}
-
-export interface Theme {
-  id: string;
-  name: string;
-  builtin: boolean;
-  default_style?: SectionStyle | null;
-  type_styles: Record<string, SectionStyle>;
-}
-
-export interface ThemeSummary {
-  id: string;
-  name: string;
-  builtin: boolean;
-  is_default: boolean;
-}
-
-export interface ThemeListResponse {
-  default_id: string;
-  themes: ThemeSummary[];
 }
 
 export interface SlideModel {

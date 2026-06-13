@@ -1,6 +1,6 @@
-"""Section/Theme visual style model.
+"""Section visual style model.
 
-Styles cascade: Theme defaults -> per-type defaults -> per-section overrides.
+Styles cascade: built-in default -> per-type defaults -> per-section overrides.
 All fields are optional; unset fields fall back to the next level up.
 """
 from __future__ import annotations

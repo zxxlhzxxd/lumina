@@ -43,7 +43,7 @@ def version() -> dict:
                     "media",
                 ],
                 "libraries": True,
-                "themes": True,
+                "themes": False,
                 "media": True,
                 "templateImportExport": True,
                 "audioPlayback": False,

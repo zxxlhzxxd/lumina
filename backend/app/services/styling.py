@@ -1,15 +1,15 @@
 """Style cascade resolution (§4.6).
 
-Effective style = Theme.default_style -> Theme.type_styles[type] -> Section.style,
+Effective style = built-in default -> per-type default -> Section.style,
 merged "nearest wins". Unset fields fall through to the level above.
 """
 from __future__ import annotations
 
 from typing import Optional
 
-from app.domain.project import Theme
 from app.domain.sections import Section
 from app.domain.style import SectionStyle, TextStyle
+from app.services.default_style import default_style, type_styles
 
 
 def _merge_text(base: Optional[TextStyle], over: Optional[TextStyle]) -> Optional[TextStyle]:
@@ -38,12 +38,10 @@ def _merge_style(base: Optional[SectionStyle], over: Optional[SectionStyle]) -> 
     return base
 
 
-def resolve_style(theme: Optional[Theme], section: Section) -> SectionStyle:
+def resolve_style(section: Section) -> SectionStyle:
     """Compute the effective, fully cascaded style for a section."""
-    effective = SectionStyle()
-    if theme is not None:
-        effective = _merge_style(effective, theme.default_style)
-        type_style = theme.type_styles.get(section.type.value)
-        effective = _merge_style(effective, type_style)
+    effective = _merge_style(SectionStyle(), default_style())
+    type_style = type_styles().get(section.type.value)
+    effective = _merge_style(effective, type_style)
     effective = _merge_style(effective, getattr(section, "style", None))
     return effective

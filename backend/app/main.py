@@ -23,7 +23,6 @@ from app.api.v1 import (
     projects,
     system,
     templates,
-    themes,
 )
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
@@ -78,7 +77,6 @@ def create_app() -> FastAPI:
     app.include_router(templates.router, prefix=api_prefix)
     app.include_router(hymns.router, prefix=api_prefix)
     app.include_router(liturgy_texts.router, prefix=api_prefix)
-    app.include_router(themes.router, prefix=api_prefix)
 
     return app
 

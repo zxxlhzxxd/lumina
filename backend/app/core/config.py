@@ -19,7 +19,7 @@ class Settings:
         # 0 lets the OS pick a free port; the launcher reads it back from stdout.
         self.port: int = int(os.environ.get("LUMINA_PORT", "0"))
 
-        # Base directory for user data (projects, templates, themes).
+        # Base directory for user data (projects and templates).
         default_data_dir = Path.home() / ".lumina"
         self.data_dir: Path = Path(os.environ.get("LUMINA_DATA_DIR", str(default_data_dir)))
 
@@ -39,18 +39,13 @@ class Settings:
         # `project.json`/`template.json` + a `media/` subdirectory.
         self.projects_dir: Path = self.data_dir / "projects"
         self.templates_dir: Path = self.data_dir / "templates"
-        self.themes_dir: Path = self.data_dir / "themes"
         self.exports_dir: Path = self.data_dir / "exports"
-
-        # Small JSON file for user preferences (e.g. default theme id).
-        self.prefs_path: Path = self.data_dir / "preferences.json"
 
     def ensure_dirs(self) -> None:
         for d in (
             self.data_dir,
             self.projects_dir,
             self.templates_dir,
-            self.themes_dir,
             self.exports_dir,
         ):
             d.mkdir(parents=True, exist_ok=True)

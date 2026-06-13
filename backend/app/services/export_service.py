@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from app.core.errors import AppError, ExportError
-from app.domain.project import Project, Theme
+from app.domain.project import Project
 from app.domain.sections import (
     CoverSection,
     ResponsiveReadingSection,
@@ -57,11 +57,10 @@ def validate_project(project: Project) -> List[dict]:
 def export_project(
     project: Project,
     out_path: Path,
-    theme: Optional[Theme] = None,
     media_root: Optional[Path] = None,
 ) -> Path:
     try:
-        slides = build_slides(project, theme)
+        slides = build_slides(project)
         return build_pptx(slides, out_path, project.slide_size, media_root=media_root)
     except AppError:
         raise

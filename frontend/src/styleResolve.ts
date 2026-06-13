@@ -1,8 +1,46 @@
 /**
  * Client-side style cascade (mirrors backend/app/services/styling.py).
- * Theme.default_style -> Theme.type_styles[type] -> Section.style
+ * Built-in default -> per-type default -> Section.style
  */
-import type { Section, SectionStyle, TextStyle, Theme } from "./types";
+import type { Section, SectionStyle, TextStyle } from "./types";
+
+const CJK_FONT = "Microsoft YaHei";
+
+const DEFAULT_STYLE: SectionStyle = {
+  background_color: "#F7F3E9",
+  body: {
+    font_family: CJK_FONT,
+    font_size: 32,
+    color: "#2B2B2B",
+    align: "center",
+  },
+  title: {
+    font_family: CJK_FONT,
+    font_size: 54,
+    color: "#7A5C1E",
+    bold: true,
+    align: "center",
+  },
+  label: {
+    font_family: CJK_FONT,
+    font_size: 44,
+    color: "#B8860B",
+    bold: true,
+  },
+  margin: 0.8,
+};
+
+const TYPE_STYLES: Record<string, SectionStyle> = {
+  hymn: {
+    body: {
+      font_family: CJK_FONT,
+      font_size: 40,
+      color: "#2B2B2B",
+      bold: true,
+      align: "center",
+    },
+  },
+};
 
 function mergeText(
   base: TextStyle | null | undefined,
@@ -37,21 +75,16 @@ function mergeStyle(
   return result;
 }
 
-export function resolveStyle(theme: Theme | null | undefined, section: Section): SectionStyle {
+export function resolveStyle(section: Section): SectionStyle {
   let effective: SectionStyle = {};
-  if (theme) {
-    effective = mergeStyle(effective, theme.default_style ?? undefined);
-    const typeStyle = theme.type_styles?.[section.type];
-    effective = mergeStyle(effective, typeStyle);
-  }
+  effective = mergeStyle(effective, DEFAULT_STYLE);
+  const typeStyle = TYPE_STYLES[section.type];
+  effective = mergeStyle(effective, typeStyle);
   effective = mergeStyle(effective, section.style ?? undefined);
   return effective;
 }
 
 /** Serialize resolved style for SlideModel.style (API-compatible dict). */
-export function resolvedStyleDict(
-  theme: Theme | null | undefined,
-  section: Section
-): SectionStyle {
-  return resolveStyle(theme, section);
+export function resolvedStyleDict(section: Section): SectionStyle {
+  return resolveStyle(section);
 }

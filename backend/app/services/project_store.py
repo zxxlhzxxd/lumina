@@ -62,7 +62,6 @@ class ProjectStore:
         name: Optional[str] = None,
         date: Optional[str] = None,
         template_id: Optional[str] = None,
-        theme_id: Optional[str] = None,
     ) -> Project:
         if template_id:
             template = template_store.get(template_id)
@@ -72,7 +71,6 @@ class ProjectStore:
                 name=name or "未命名礼拜",
                 date=date,
                 slide_size=template.slide_size,
-                theme_id=theme_id,
                 sections=[s.model_copy(deep=True) for s in template.sections],
             )
             for section in project.sections:
@@ -87,7 +85,7 @@ class ProjectStore:
                     )
                     media_store.rewrite_media_refs(project.sections, mapping)
         else:
-            project = Project(name=name or "未命名礼拜", date=date, theme_id=theme_id)
+            project = Project(name=name or "未命名礼拜", date=date)
         self._projects[project.id] = project
         self.write_file(project)
         return project

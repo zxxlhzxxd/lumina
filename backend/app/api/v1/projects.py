@@ -21,7 +21,6 @@ from app.services import media_store
 from app.services.export_service import export_project, validate_project
 from app.services.generation import build_slides
 from app.services.project_store import project_store
-from app.services.theme_store import theme_store
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -30,7 +29,6 @@ class CreateProjectBody(BaseModel):
     name: Optional[str] = None
     date: Optional[str] = None
     template_id: Optional[str] = None
-    theme_id: Optional[str] = None
 
 
 class ExportBody(BaseModel):
@@ -50,8 +48,7 @@ def _safe_filename(name: str) -> str:
 # ---- stateless operations (declared before /{id} routes) -----------------
 @router.post("/preview")
 def preview(project: Project) -> dict:
-    theme = theme_store.get_or_default(project.theme_id)
-    slides = build_slides(project, theme)
+    slides = build_slides(project)
     return ok({"slides": [s.model_dump() for s in slides], "count": len(slides)})
 
 
@@ -68,9 +65,8 @@ def export(body: ExportBody) -> dict:
     else:
         settings.ensure_dirs()
         out = settings.exports_dir / f"{_safe_filename(project.name)}.pptx"
-    theme = theme_store.get_or_default(project.theme_id)
     media_root = project_store.media_root(project.id) if project.id else None
-    saved = export_project(project, out, theme=theme, media_root=media_root)
+    saved = export_project(project, out, media_root=media_root)
     issues = validate_project(project)
     return ok({"path": str(saved), "issues": issues})
 
@@ -82,7 +78,6 @@ def create_project(body: CreateProjectBody) -> dict:
         name=body.name,
         date=body.date,
         template_id=body.template_id,
-        theme_id=body.theme_id or theme_store.default_id,
     )
     return ok(project.model_dump())
 
@@ -146,9 +141,8 @@ def export_download(project_id: str):
     project = project_store.get(project_id)
     settings.ensure_dirs()
     out = settings.exports_dir / f"{_safe_filename(project.name)}.pptx"
-    theme = theme_store.get_or_default(project.theme_id)
     saved = export_project(
-        project, out, theme=theme, media_root=project_store.media_root(project_id)
+        project, out, media_root=project_store.media_root(project_id)
     )
     return FileResponse(
         str(saved),

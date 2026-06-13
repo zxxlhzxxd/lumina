@@ -1,4 +1,4 @@
-"""Project, Theme and ServiceTemplate models."""
+"""Project and ServiceTemplate models."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 
 from app.domain.enums import SlideSize
 from app.domain.sections import Section
-from app.domain.style import SectionStyle
 
 SectionUnion = Annotated[Section, Field(discriminator="type")]
 
@@ -25,15 +24,6 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-class Theme(BaseModel):
-    id: str = Field(default_factory=_new_id)
-    name: str = "默认主题"
-    builtin: bool = False
-    default_style: Optional[SectionStyle] = None
-    # Optional per-section-type default styles keyed by SectionType value.
-    type_styles: dict[str, SectionStyle] = Field(default_factory=dict)
-
-
 class ProjectMeta(BaseModel):
     pastor: str = ""
     theme_scripture: str = ""
@@ -46,7 +36,6 @@ class Project(BaseModel):
     name: str = "未命名礼拜"
     date: Optional[str] = None  # ISO date string
     slide_size: SlideSize = SlideSize.WIDE
-    theme_id: Optional[str] = None
     sections: List[SectionUnion] = Field(default_factory=list)
     meta: ProjectMeta = Field(default_factory=ProjectMeta)
     created_at: str = Field(default_factory=_now)

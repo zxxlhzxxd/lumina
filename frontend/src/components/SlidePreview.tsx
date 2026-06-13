@@ -10,9 +10,11 @@ import type { SlideModel } from "../types";
 export function SlidePreview({
   slide,
   projectId,
+  onClick,
 }: {
   slide: SlideModel;
   projectId?: string | null;
+  onClick?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -53,9 +55,27 @@ export function SlidePreview({
   }
 
   const boxes = slideTextBoxes(slide);
+  const interactiveProps = onClick
+    ? {
+        role: "button",
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        },
+      }
+    : {};
 
   return (
-    <div ref={containerRef} className="slide-card" style={cardStyle}>
+    <div
+      ref={containerRef}
+      className={`slide-card${onClick ? " clickable" : ""}`}
+      style={cardStyle}
+      {...interactiveProps}
+    >
       <div className="slide-card__layer">
         {boxes.map((box, i) => (
           <div

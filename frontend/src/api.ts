@@ -12,8 +12,6 @@ import type {
   ProjectSummary,
   SlideModel,
   TemplateSummary,
-  Theme,
-  ThemeListResponse,
   ValidationIssue,
 } from "./types";
 
@@ -112,11 +110,10 @@ export const api = {
 
   getProject: (id: string) => request<Project>("GET", `/projects/${id}`),
 
-  createProject: (templateId: string | null, name?: string, themeId?: string | null) =>
+  createProject: (templateId: string | null, name?: string) =>
     request<Project>("POST", "/projects", {
       template_id: templateId,
       name,
-      theme_id: themeId ?? null,
     }),
 
   deleteProject: (id: string) =>
@@ -185,18 +182,6 @@ export const api = {
     request<{ deleted: string }>("DELETE", `/liturgy-texts/${id}`),
   duplicateLiturgy: (id: string) =>
     request<LiturgyText>("POST", `/liturgy-texts/${id}/duplicate`),
-
-  // ---- themes ----
-  listThemes: () => request<ThemeListResponse>("GET", "/themes"),
-  getTheme: (id: string) => request<Theme>("GET", `/themes/${id}`),
-  createTheme: (theme: Partial<Theme>) => request<Theme>("POST", "/themes", theme),
-  updateTheme: (id: string, theme: Theme) =>
-    request<Theme>("PUT", `/themes/${id}`, theme),
-  deleteTheme: (id: string) =>
-    request<{ deleted: string }>("DELETE", `/themes/${id}`),
-  duplicateTheme: (id: string) => request<Theme>("POST", `/themes/${id}/duplicate`),
-  setDefaultTheme: (id: string) =>
-    request<{ default_id: string }>("POST", `/themes/${id}/set-default`),
 
   // ---- service templates ----
   getTemplate: (id: string) => request<any>("GET", `/service-templates/${id}`),

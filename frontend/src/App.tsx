@@ -15,13 +15,11 @@ import type { MenuProps } from "antd";
 import {
   ArrowLeftOutlined,
   AppstoreOutlined,
-  BgColorsOutlined,
   CheckCircleOutlined,
   CopyOutlined,
   DeleteOutlined,
   DownOutlined,
   ExportOutlined,
-  FileAddOutlined,
   PlusOutlined,
   SaveOutlined,
   StopOutlined,
@@ -30,12 +28,9 @@ import { api, pickSavePath } from "./api";
 import type {
   Project,
   Section,
-  SectionStyle,
   SectionType,
   SlideModel,
   TemplateSummary,
-  Theme,
-  ThemeSummary,
 } from "./types";
 import { SECTION_TYPE_LABEL } from "./types";
 import { makeSection } from "./sectionFactory";
@@ -43,7 +38,6 @@ import { resolveStyle } from "./styleResolve";
 import { ProjectListPage } from "./components/ProjectListPage";
 import { SectionEditor } from "./components/SectionEditor";
 import { SlidePreview } from "./components/SlidePreview";
-import { ThemeManager } from "./components/ThemeManager";
 import { TemplateManager } from "./components/TemplateManager";
 
 type BackendState = "loading" | "ready" | "error";
@@ -58,10 +52,7 @@ function Main() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [slides, setSlides] = useState<SlideModel[]>([]);
   const [newOpen, setNewOpen] = useState(false);
-  const [themeMgrOpen, setThemeMgrOpen] = useState(false);
   const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
-  const [themes, setThemes] = useState<ThemeSummary[]>([]);
-  const [currentTheme, setCurrentTheme] = useState<Theme | null>(null);
   const [exporting, setExporting] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -71,19 +62,11 @@ function Main() {
   const [unsavedOpen, setUnsavedOpen] = useState(false);
   const pendingNav = useRef<(() => void) | null>(null);
   const previewTimer = useRef<number | null>(null);
+  const outlineItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const markProjectClean = useCallback((p: Project) => {
     setSavedSnapshot(JSON.stringify(p));
     setDirty(false);
-  }, []);
-
-  const refreshThemes = useCallback(async () => {
-    try {
-      const res = await api.listThemes();
-      setThemes(res.themes);
-    } catch {
-      // non-fatal
-    }
   }, []);
 
   const refreshTemplates = useCallback(async () => {
@@ -94,29 +77,18 @@ function Main() {
     }
   }, []);
 
-  const loadProjectTheme = useCallback(async (themeId: string | null | undefined) => {
-    try {
-      const list = await api.listThemes();
-      const id = themeId || list.default_id;
-      const theme = await api.getTheme(id);
-      setCurrentTheme(theme);
-    } catch {
-      setCurrentTheme(null);
-    }
-  }, []);
-
   // ---- backend bootstrap ----
   useEffect(() => {
     (async () => {
       try {
         await api.waitForBackend();
-        await Promise.all([refreshTemplates(), refreshThemes()]);
+        await refreshTemplates();
         setBackend("ready");
       } catch {
         setBackend("error");
       }
     })();
-  }, [refreshTemplates, refreshThemes]);
+  }, [refreshTemplates]);
 
   // ---- dirty tracking ----
   useEffect(() => {
@@ -154,8 +126,8 @@ function Main() {
 
   const selectedEffectiveStyle = useMemo(() => {
     if (!selectedSection) return {};
-    return resolveStyle(currentTheme, selectedSection);
-  }, [selectedSection, currentTheme]);
+    return resolveStyle(selectedSection);
+  }, [selectedSection]);
 
   /** Re-resolve styles client-side so style edits reflect instantly in preview. */
   const displaySlides = useMemo(() => {
@@ -164,13 +136,26 @@ function Main() {
     return slides.map((sl) => {
       const section = sectionById.get(sl.section_id);
       if (!section) return sl;
-      return { ...sl, style: resolveStyle(currentTheme, section) };
+      return { ...sl, style: resolveStyle(section) };
     });
-  }, [slides, project, currentTheme]);
+  }, [slides, project]);
 
   const selectedDisplaySlides = useMemo(
     () => displaySlides.filter((s) => s.section_id === selectedId),
     [displaySlides, selectedId]
+  );
+
+  const selectSectionFromPreview = useCallback(
+    (sectionId: string) => {
+      if (!project?.sections.some((s) => s.id === sectionId)) return;
+      setSelectedId(sectionId);
+      window.requestAnimationFrame(() => {
+        outlineItemRefs.current[sectionId]?.scrollIntoView({
+          block: "nearest",
+        });
+      });
+    },
+    [project]
   );
 
   const guardNavigation = useCallback(
@@ -191,7 +176,6 @@ function Main() {
       setSelectedId(null);
       setSavedSnapshot(null);
       setDirty(false);
-      setCurrentTheme(null);
       setScreen("list");
       setListRefreshKey((k) => k + 1);
     });
@@ -204,31 +188,25 @@ function Main() {
         setProject(p);
         setSelectedId(p.sections[0]?.id ?? null);
         markProjectClean(p);
-        await loadProjectTheme(p.theme_id);
         setScreen("editor");
       } catch (e: any) {
         message.error(e.message ?? "加载失败");
       }
     },
-    [loadProjectTheme, markProjectClean, message]
+    [markProjectClean, message]
   );
 
   const requestNewProject = useCallback(() => {
-    if (screen === "editor") {
-      guardNavigation(() => setNewOpen(true));
-    } else {
-      setNewOpen(true);
-    }
-  }, [screen, guardNavigation]);
+    setNewOpen(true);
+  }, []);
 
   // ---- project ops ----
-  const handleCreate = async (templateId: string, name: string, themeId: string) => {
+  const handleCreate = async (templateId: string, name: string) => {
     try {
-      const p = await api.createProject(templateId || null, name, themeId || null);
+      const p = await api.createProject(templateId || null, name);
       setProject(p);
       setSelectedId(p.sections[0]?.id ?? null);
       markProjectClean(p);
-      await loadProjectTheme(p.theme_id);
       setScreen("editor");
       setNewOpen(false);
       message.success("已创建工程");
@@ -335,38 +313,6 @@ function Main() {
     }
   };
 
-  const changeTheme = async (themeId: string) => {
-    if (!project) return;
-    setProject({ ...project, theme_id: themeId });
-    try {
-      const theme = await api.getTheme(themeId);
-      setCurrentTheme(theme);
-    } catch {
-      await loadProjectTheme(themeId);
-    }
-  };
-
-  const setTypeDefaultStyle = async (sectionType: SectionType, style: SectionStyle) => {
-    if (!project) return;
-    const themeId = project.theme_id;
-    try {
-      const theme = await api.getTheme(themeId ?? "");
-      if (theme.builtin) {
-        message.warning("内置主题为只读，请先在「主题」中复制后选用，再设为类型默认");
-        return;
-      }
-      const next = {
-        ...theme,
-        type_styles: { ...theme.type_styles, [sectionType]: style },
-      };
-      await api.updateTheme(theme.id, next);
-      setCurrentTheme(next);
-      message.success("已写入当前主题的本类型默认样式");
-    } catch (e: any) {
-      message.error(e.message ?? "写入主题失败");
-    }
-  };
-
   const saveAsTemplate = async () => {
     if (!project) return;
     try {
@@ -463,7 +409,7 @@ function Main() {
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      if (mod && key === "n") {
+      if (mod && key === "n" && screen === "list") {
         e.preventDefault();
         requestNewProject();
         return;
@@ -543,29 +489,10 @@ function Main() {
           </>
         )}
         <div className="spacer" />
-        {screen === "editor" && project && (
-          <Select
-            size="middle"
-            style={{ width: 160 }}
-            value={project.theme_id ?? undefined}
-            placeholder="选择主题"
-            onChange={changeTheme}
-            options={themes.map((t) => ({
-              label: t.name + (t.is_default ? "（默认）" : ""),
-              value: t.id,
-            }))}
-          />
-        )}
         {screen === "editor" && (
           <Space>
-            <Button icon={<BgColorsOutlined />} onClick={() => setThemeMgrOpen(true)}>
-              主题
-            </Button>
             <Button icon={<AppstoreOutlined />} onClick={() => setTemplateMgrOpen(true)}>
               模板
-            </Button>
-            <Button icon={<FileAddOutlined />} onClick={requestNewProject}>
-              新建
             </Button>
             <Button icon={<CopyOutlined />} disabled={!project} onClick={duplicateProject}>
               复制工程
@@ -645,6 +572,9 @@ function Main() {
                     }}
                   >
                     <div
+                      ref={(el) => {
+                        outlineItemRefs.current[s.id] = el;
+                      }}
                       className={`outline-item${s.id === selectedId ? " active" : ""}${
                         s.enabled ? "" : " disabled"
                       }${overIndex === idx && dragIndex !== null && dragIndex !== idx ? " drag-over" : ""}${
@@ -688,9 +618,6 @@ function Main() {
                     projectId={project.id}
                     effectiveStyle={selectedEffectiveStyle}
                     onChange={(patch) => updateSection(selectedSection.id, patch)}
-                    onSetTypeDefault={(style) =>
-                      setTypeDefaultStyle(selectedSection.type, style)
-                    }
                   />
                   {selectedDisplaySlides.length > 0 && (
                     <>
@@ -723,6 +650,7 @@ function Main() {
                   key={`${sl.section_id}-${sl.index}`}
                   slide={sl}
                   projectId={project.id}
+                  onClick={() => selectSectionFromPreview(sl.section_id)}
                 />
               ))}
             </div>
@@ -733,18 +661,8 @@ function Main() {
       <NewProjectModal
         open={newOpen}
         templates={templates}
-        themes={themes}
         onCancel={() => setNewOpen(false)}
         onCreate={handleCreate}
-      />
-
-      <ThemeManager
-        open={themeMgrOpen}
-        onClose={() => setThemeMgrOpen(false)}
-        onChanged={() => {
-          refreshThemes();
-          if (project?.theme_id) loadProjectTheme(project.theme_id);
-        }}
       />
 
       <TemplateManager
@@ -778,19 +696,16 @@ function Main() {
 function NewProjectModal({
   open,
   templates,
-  themes,
   onCancel,
   onCreate,
 }: {
   open: boolean;
   templates: TemplateSummary[];
-  themes: ThemeSummary[];
   onCancel: () => void;
-  onCreate: (templateId: string, name: string, themeId: string) => void;
+  onCreate: (templateId: string, name: string) => void;
 }) {
   const [name, setName] = useState("主日崇拜");
   const [templateId, setTemplateId] = useState<string>("");
-  const [themeId, setThemeId] = useState<string>("");
 
   useEffect(() => {
     if (open && templates.length && !templateId) {
@@ -798,19 +713,12 @@ function NewProjectModal({
     }
   }, [open, templates, templateId]);
 
-  useEffect(() => {
-    if (open && themes.length && !themeId) {
-      const def = themes.find((t) => t.is_default) ?? themes[0];
-      setThemeId(def.id);
-    }
-  }, [open, themes, themeId]);
-
   return (
     <Modal
       title="新建礼拜工程"
       open={open}
       onCancel={onCancel}
-      onOk={() => onCreate(templateId, name, themeId)}
+      onOk={() => onCreate(templateId, name)}
       okText="创建"
       cancelText="取消"
     >
@@ -827,18 +735,6 @@ function NewProjectModal({
             onChange={setTemplateId}
             options={templates.map((t) => ({
               label: `${t.name}（${t.section_count} 段）`,
-              value: t.id,
-            }))}
-          />
-        </div>
-        <div>
-          <div style={{ marginBottom: 6 }}>视觉主题</div>
-          <Select
-            style={{ width: "100%" }}
-            value={themeId}
-            onChange={setThemeId}
-            options={themes.map((t) => ({
-              label: t.name + (t.is_default ? "（默认）" : ""),
               value: t.id,
             }))}
           />
