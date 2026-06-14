@@ -4,6 +4,10 @@
 import type {
   Book,
   ChapterInfo,
+  Hymn,
+  HymnSummary,
+  LiturgyText,
+  LiturgyTextSummary,
   Project,
   ProjectSummary,
   SlideModel,
@@ -16,6 +20,11 @@ declare global {
     lumina?: {
       getBackendInfo: () => Promise<{ port: number; baseUrl: string }>;
       savePptxDialog: (defaultName: string) => Promise<string | null>;
+      pickMediaDialog: (
+        kind: "image" | "audio" | "video"
+      ) => Promise<string | null>;
+      exportTemplateDialog: (defaultName: string) => Promise<string | null>;
+      importTemplateDialog: () => Promise<string | null>;
     };
   }
 }
@@ -147,11 +156,91 @@ export const api = {
 
   listChapters: (bookId: number) =>
     request<ChapterInfo[]>("GET", `/bible/books/${bookId}/chapters`),
+
+  // ---- hymn library ----
+  listHymns: (query = "") =>
+    request<HymnSummary[]>("GET", `/hymns?query=${encodeURIComponent(query)}`),
+  getHymn: (id: string) => request<Hymn>("GET", `/hymns/${id}`),
+  createHymn: (hymn: Partial<Hymn>) => request<Hymn>("POST", "/hymns", hymn),
+  updateHymn: (id: string, hymn: Hymn) => request<Hymn>("PUT", `/hymns/${id}`, hymn),
+  deleteHymn: (id: string) =>
+    request<{ deleted: string }>("DELETE", `/hymns/${id}`),
+  duplicateHymn: (id: string) => request<Hymn>("POST", `/hymns/${id}/duplicate`),
+
+  // ---- liturgy library ----
+  listLiturgy: (query = "") =>
+    request<LiturgyTextSummary[]>(
+      "GET",
+      `/liturgy-texts?query=${encodeURIComponent(query)}`
+    ),
+  getLiturgy: (id: string) => request<LiturgyText>("GET", `/liturgy-texts/${id}`),
+  createLiturgy: (text: Partial<LiturgyText>) =>
+    request<LiturgyText>("POST", "/liturgy-texts", text),
+  updateLiturgy: (id: string, text: LiturgyText) =>
+    request<LiturgyText>("PUT", `/liturgy-texts/${id}`, text),
+  deleteLiturgy: (id: string) =>
+    request<{ deleted: string }>("DELETE", `/liturgy-texts/${id}`),
+  duplicateLiturgy: (id: string) =>
+    request<LiturgyText>("POST", `/liturgy-texts/${id}/duplicate`),
+
+  // ---- service templates ----
+  getTemplate: (id: string) => request<any>("GET", `/service-templates/${id}`),
+  deleteTemplate: (id: string) =>
+    request<{ deleted: string }>("DELETE", `/service-templates/${id}`),
+  duplicateTemplate: (id: string) =>
+    request<any>("POST", `/service-templates/${id}/duplicate`),
+  templateFromProject: (projectId: string, name?: string, description = "") =>
+    request<any>("POST", "/service-templates/from-project", {
+      project_id: projectId,
+      name,
+      description,
+    }),
+  exportTemplate: (id: string, path: string) =>
+    request<{ path: string }>("POST", `/service-templates/${id}/export`, { path }),
+  importTemplate: (path: string) =>
+    request<any>("POST", "/service-templates/import", { path }),
+
+  // ---- media ----
+  importMedia: (projectId: string, sourcePath: string) =>
+    request<{ ref: string }>("POST", `/projects/${projectId}/media`, {
+      source_path: sourcePath,
+    }),
 };
+
+export async function mediaUrl(projectId: string, ref: string): Promise<string> {
+  const base = await resolveBaseUrl();
+  const file = ref.startsWith("media/") ? ref.slice("media/".length) : ref;
+  return `${base}/projects/${projectId}/media/${encodeURIComponent(file)}`;
+}
 
 export async function pickSavePath(defaultName: string): Promise<string | null> {
   if (window.lumina?.savePptxDialog) {
     return window.lumina.savePptxDialog(defaultName);
   }
   return null; // browser dev: backend chooses default path
+}
+
+export async function pickMediaFile(
+  kind: "image" | "audio" | "video"
+): Promise<string | null> {
+  if (window.lumina?.pickMediaDialog) {
+    return window.lumina.pickMediaDialog(kind);
+  }
+  return null;
+}
+
+export async function pickTemplateExportPath(
+  defaultName: string
+): Promise<string | null> {
+  if (window.lumina?.exportTemplateDialog) {
+    return window.lumina.exportTemplateDialog(defaultName);
+  }
+  return null;
+}
+
+export async function pickTemplateImportPath(): Promise<string | null> {
+  if (window.lumina?.importTemplateDialog) {
+    return window.lumina.importTemplateDialog();
+  }
+  return null;
 }

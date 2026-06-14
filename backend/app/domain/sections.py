@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from app.domain.enums import PlayMode, ReadingRole, SectionType
+from app.domain.enums import AudioTrigger, PlayMode, ReadingRole, SectionType
 from app.domain.style import SectionStyle
 
 
@@ -81,6 +81,7 @@ class MediaSection(SectionBase):
     caption: str = ""
     audio_ref: Optional[str] = None  # media ref inside project
     play_mode: PlayMode = PlayMode.ONCE
+    audio_trigger: AudioTrigger = AudioTrigger.CLICK
     video_ref: Optional[str] = None  # phase 3
 
 

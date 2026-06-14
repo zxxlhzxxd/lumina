@@ -1,12 +1,14 @@
 """Tests for section -> slide expansion using a stub passage resolver."""
 from app.domain.bible import BibleReference, RangeRef, Verse, VerseRef
+from app.domain.project import Project
 from app.domain.sections import (
     CoverSection,
     LiturgyTextSection,
+    MediaSection,
     ResponsiveReadingSection,
     ScriptureSection,
 )
-from app.services.generation import build_section_slides
+from app.services.generation import build_section_slides, build_slides
 
 
 def stub_resolver(_raw: str):
@@ -55,3 +57,27 @@ def test_liturgy_pagination():
     )
     slides = build_section_slides(s)
     assert len(slides) == 2
+
+
+def test_media_slide_carries_audio_playback_fields():
+    s = MediaSection(
+        caption="请起立默祷",
+        audio_ref="media/prayer.wav",
+        play_mode="loop",
+        audio_trigger="auto",
+    )
+    slides = build_section_slides(s)
+    assert len(slides) == 1
+    assert slides[0].kind == "media"
+    assert slides[0].body == "请起立默祷"
+    assert slides[0].audio_ref == "media/prayer.wav"
+    assert slides[0].play_mode == "loop"
+    assert slides[0].audio_trigger == "auto"
+
+
+def test_build_slides_injects_resolved_style():
+    project = Project(sections=[CoverSection(main_title="标题")])
+    slides = build_slides(project)
+    assert slides[0].style is not None
+    assert slides[0].style["background_color"] == "#F7F3E9"
+    assert slides[0].style["body"]["font_size"] == 32

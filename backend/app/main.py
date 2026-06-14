@@ -16,7 +16,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api.v1 import bible, projects, system, templates
+from app.api.v1 import (
+    bible,
+    hymns,
+    liturgy_texts,
+    projects,
+    system,
+    templates,
+)
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.core.responses import err
@@ -68,6 +75,8 @@ def create_app() -> FastAPI:
     app.include_router(bible.router, prefix=api_prefix)
     app.include_router(projects.router, prefix=api_prefix)
     app.include_router(templates.router, prefix=api_prefix)
+    app.include_router(hymns.router, prefix=api_prefix)
+    app.include_router(liturgy_texts.router, prefix=api_prefix)
 
     return app
 

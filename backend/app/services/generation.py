@@ -24,6 +24,7 @@ from app.domain.sections import (
     Section,
 )
 from app.services.bible_service import bible_service
+from app.services.styling import resolve_style
 
 # (raw_ref) -> (reference, verses)
 PassageResolver = Callable[[str], Tuple[BibleReference, List[Verse]]]
@@ -39,6 +40,11 @@ class SlideModel(BaseModel):
     label: Optional[str] = None  # 启 / 应
     reference: Optional[str] = None
     body: Optional[str] = None
+    audio_ref: Optional[str] = None
+    play_mode: Optional[str] = None
+    audio_trigger: Optional[str] = None
+    # Resolved (cascaded) style for this slide; consumed by preview + PPTX.
+    style: Optional[dict] = None
 
 
 _ROLE_LABEL = {ReadingRole.QI: "启", ReadingRole.YING: "应"}
@@ -228,7 +234,9 @@ def _media_slides(s: MediaSection) -> List[SlideModel]:
             section_id=s.id,
             section_type=s.type.value,
             body=s.caption or None,
-            subtitle=(f"♪ {s.audio_ref}" if s.audio_ref else None),
+            audio_ref=s.audio_ref,
+            play_mode=s.play_mode.value,
+            audio_trigger=s.audio_trigger.value,
         )
     ]
 
@@ -252,11 +260,18 @@ def build_section_slides(section: Section, resolve: Optional[PassageResolver] = 
     return []
 
 
-def build_slides(project: Project, resolve: Optional[PassageResolver] = None) -> List[SlideModel]:
+def build_slides(
+    project: Project,
+    resolve: Optional[PassageResolver] = None,
+) -> List[SlideModel]:
     resolve = resolve or bible_service.get_passage
     slides: List[SlideModel] = []
     for section in project.sections:
         if not section.enabled:
             continue
-        slides.extend(build_section_slides(section, resolve))
+        section_slides = build_section_slides(section, resolve)
+        style = resolve_style(section).model_dump()
+        for sm in section_slides:
+            sm.style = style
+        slides.extend(section_slides)
     return slides

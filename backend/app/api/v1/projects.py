@@ -1,7 +1,8 @@
-"""Project endpoints: CRUD, duplicate, preview, export.
+"""Project endpoints: CRUD, duplicate, media, preview, export.
 
 Stateless `preview` / `export` operate on a posted Project so the editor can
-preview/export unsaved edits. The stored-project routes handle persistence.
+preview/export unsaved edits. The stored-project routes handle persistence and
+own the project's media working directory.
 """
 from __future__ import annotations
 
@@ -13,8 +14,10 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.core.errors import NotFoundError
 from app.core.responses import ok
 from app.domain.project import Project
+from app.services import media_store
 from app.services.export_service import export_project, validate_project
 from app.services.generation import build_slides
 from app.services.project_store import project_store
@@ -33,6 +36,10 @@ class ExportBody(BaseModel):
     path: Optional[str] = None
 
 
+class ImportMediaBody(BaseModel):
+    source_path: str
+
+
 def _safe_filename(name: str) -> str:
     cleaned = "".join(c for c in name if c not in '\\/:*?"<>|').strip()
     return cleaned or "lumina"
@@ -47,18 +54,21 @@ def preview(project: Project) -> dict:
 
 @router.post("/validate")
 def validate(project: Project) -> dict:
-    return ok({"issues": validate_project(project)})
+    media_root = project_store.media_root(project.id) if project.id else None
+    return ok({"issues": validate_project(project, media_root=media_root)})
 
 
 @router.post("/export")
 def export(body: ExportBody) -> dict:
+    project = body.project
     if body.path:
         out = Path(body.path)
     else:
         settings.ensure_dirs()
-        out = settings.exports_dir / f"{_safe_filename(body.project.name)}.pptx"
-    saved = export_project(body.project, out)
-    issues = validate_project(body.project)
+        out = settings.exports_dir / f"{_safe_filename(project.name)}.pptx"
+    media_root = project_store.media_root(project.id) if project.id else None
+    saved = export_project(project, out, media_root=media_root)
+    issues = validate_project(project, media_root=media_root)
     return ok({"path": str(saved), "issues": issues})
 
 
@@ -66,7 +76,9 @@ def export(body: ExportBody) -> dict:
 @router.post("")
 def create_project(body: CreateProjectBody) -> dict:
     project = project_store.create(
-        name=body.name, date=body.date, template_id=body.template_id
+        name=body.name,
+        date=body.date,
+        template_id=body.template_id,
     )
     return ok(project.model_dump())
 
@@ -110,12 +122,29 @@ def save_to_disk(project_id: str) -> dict:
     return ok({"path": str(path)})
 
 
+# ---- media ---------------------------------------------------------------
+@router.post("/{project_id}/media")
+def import_media(project_id: str, body: ImportMediaBody) -> dict:
+    ref = project_store.import_media(project_id, body.source_path)
+    return ok({"ref": ref})
+
+
+@router.get("/{project_id}/media/{filename}")
+def get_media(project_id: str, filename: str):
+    path = media_store.media_path(project_store.work_dir(project_id), filename)
+    if path is None or not path.exists():
+        raise NotFoundError(f"媒体不存在: {filename}")
+    return FileResponse(str(path))
+
+
 @router.get("/{project_id}/export/download")
 def export_download(project_id: str):
     project = project_store.get(project_id)
     settings.ensure_dirs()
     out = settings.exports_dir / f"{_safe_filename(project.name)}.pptx"
-    saved = export_project(project, out)
+    saved = export_project(
+        project, out, media_root=project_store.media_root(project_id)
+    )
     return FileResponse(
         str(saved),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",

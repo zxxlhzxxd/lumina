@@ -1,30 +1,92 @@
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { mediaUrl } from "../api";
+import {
+  boxStyle,
+  computePreviewScale,
+  slideTextBoxes,
+} from "../previewLayout";
 import type { SlideModel } from "../types";
 
-// Approximate (HTML/CSS) preview of a generated slide. Mirrors the PPTX layout
-// closely enough to be useful; high-fidelity rendering is a later phase.
-export function SlidePreview({ slide }: { slide: SlideModel }) {
-  const isTitle =
-    slide.kind === "cover" ||
-    slide.kind === "scripture_title" ||
-    slide.kind === "hymn_title";
-  const big = slide.kind === "responsive_verse" || slide.section_type === "hymn";
+export function SlidePreview({
+  slide,
+  projectId,
+  onClick,
+}: {
+  slide: SlideModel;
+  projectId?: string | null;
+  onClick?: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const style = slide.style ?? null;
+
+  const [bgUrl, setBgUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const ref = style?.background_image;
+    if (ref && projectId) {
+      mediaUrl(projectId, ref)
+        .then((u) => alive && setBgUrl(u))
+        .catch(() => alive && setBgUrl(null));
+    } else {
+      setBgUrl(null);
+    }
+    return () => {
+      alive = false;
+    };
+  }, [style?.background_image, projectId]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setScale(computePreviewScale(el.clientWidth));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const cardStyle: CSSProperties = {};
+  if (style?.background_color) cardStyle.background = style.background_color;
+  if (bgUrl) {
+    cardStyle.backgroundImage = `url("${bgUrl}")`;
+    cardStyle.backgroundSize = "cover";
+    cardStyle.backgroundPosition = "center";
+  }
+
+  const boxes = slideTextBoxes(slide);
+  const interactiveProps = onClick
+    ? {
+        role: "button",
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        },
+      }
+    : {};
 
   return (
-    <div className={`slide-card${big ? " big" : ""}`}>
-      {slide.label && <div className="label">{slide.label}</div>}
-      {isTitle ? (
-        <>
-          <div className="title">{slide.title || "（未填写标题）"}</div>
-          {slide.subtitle && <div className="subtitle">{slide.subtitle}</div>}
-          {slide.body && <div className="subtitle">{slide.body}</div>}
-        </>
-      ) : (
-        <>
-          {slide.title && <div className="title" style={{ marginBottom: 6 }}>{slide.title}</div>}
-          {slide.body && <div className="body">{slide.body}</div>}
-          {slide.reference && <div className="reference">{slide.reference}</div>}
-        </>
-      )}
+    <div
+      ref={containerRef}
+      className={`slide-card${onClick ? " clickable" : ""}`}
+      style={cardStyle}
+      {...interactiveProps}
+    >
+      <div className="slide-card__layer">
+        {boxes.map((box, i) => (
+          <div
+            key={i}
+            className="slide-card__text"
+            style={boxStyle(box, style, scale)}
+          >
+            {box.text}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -19,7 +19,7 @@ class Settings:
         # 0 lets the OS pick a free port; the launcher reads it back from stdout.
         self.port: int = int(os.environ.get("LUMINA_PORT", "0"))
 
-        # Base directory for user data (projects, templates, themes).
+        # Base directory for user data (projects and templates).
         default_data_dir = Path.home() / ".lumina"
         self.data_dir: Path = Path(os.environ.get("LUMINA_DATA_DIR", str(default_data_dir)))
 
@@ -30,12 +30,24 @@ class Settings:
             os.environ.get("LUMINA_BIBLE_DB", str(self.app_data_dir / "bible.sqlite"))
         )
 
+        # Content library (hymns + liturgy texts); seeded with built-ins on first run.
+        self.library_db_path: Path = Path(
+            os.environ.get("LUMINA_LIBRARY_DB", str(self.data_dir / "library.db"))
+        )
+
+        # Working stores: each project/template lives in its own directory holding
+        # `project.json`/`template.json` + a `media/` subdirectory.
         self.projects_dir: Path = self.data_dir / "projects"
         self.templates_dir: Path = self.data_dir / "templates"
         self.exports_dir: Path = self.data_dir / "exports"
 
     def ensure_dirs(self) -> None:
-        for d in (self.data_dir, self.projects_dir, self.templates_dir, self.exports_dir):
+        for d in (
+            self.data_dir,
+            self.projects_dir,
+            self.templates_dir,
+            self.exports_dir,
+        ):
             d.mkdir(parents=True, exist_ok=True)
 
 

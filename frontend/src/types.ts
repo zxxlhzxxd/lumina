@@ -11,7 +11,28 @@ export type SectionType =
 
 export type ReadingRole = "qi" | "ying";
 export type PlayMode = "once" | "loop";
+export type AudioTrigger = "click" | "auto";
 export type SlideSize = "16:9" | "4:3";
+
+export interface TextStyle {
+  font_family?: string | null;
+  font_size?: number | null;
+  color?: string | null;
+  bold?: boolean | null;
+  italic?: boolean | null;
+  align?: "left" | "center" | "right" | null;
+  line_spacing?: number | null;
+}
+
+export interface SectionStyle {
+  background_color?: string | null;
+  background_image?: string | null;
+  background_video?: string | null;
+  body?: TextStyle | null;
+  title?: TextStyle | null;
+  label?: TextStyle | null;
+  margin?: number | null;
+}
 
 export interface SectionBase {
   id: string;
@@ -19,6 +40,7 @@ export interface SectionBase {
   title: string;
   enabled: boolean;
   notes: string;
+  style?: SectionStyle | null;
 }
 
 export interface CoverSection extends SectionBase {
@@ -74,6 +96,7 @@ export interface MediaSection extends SectionBase {
   caption: string;
   audio_ref: string | null;
   play_mode: PlayMode;
+  audio_trigger: AudioTrigger;
   video_ref: string | null;
 }
 
@@ -92,7 +115,6 @@ export interface Project {
   name: string;
   date: string | null;
   slide_size: SlideSize;
-  theme_id: string | null;
   sections: Section[];
   meta: { pastor: string; theme_scripture: string; notes: string };
   created_at?: string;
@@ -128,6 +150,44 @@ export interface TemplateSummary {
   section_count: number;
 }
 
+export interface HymnLyricSection {
+  order: number;
+  label: string;
+  text: string;
+}
+
+export interface Hymn {
+  id: string;
+  title: string;
+  author: string;
+  number: string;
+  source: string;
+  builtin: boolean;
+  sections: HymnLyricSection[];
+}
+
+export interface HymnSummary {
+  id: string;
+  title: string;
+  author: string;
+  number: string;
+  builtin: boolean;
+}
+
+export interface LiturgyText {
+  id: string;
+  title: string;
+  builtin: boolean;
+  paragraphs: string[];
+}
+
+export interface LiturgyTextSummary {
+  id: string;
+  title: string;
+  builtin: boolean;
+  paragraph_count: number;
+}
+
 export interface SlideModel {
   kind: string;
   section_id: string;
@@ -138,6 +198,10 @@ export interface SlideModel {
   label: string | null;
   reference: string | null;
   body: string | null;
+  audio_ref?: string | null;
+  play_mode?: PlayMode | null;
+  audio_trigger?: AudioTrigger | null;
+  style?: SectionStyle | null;
 }
 
 export interface ValidationIssue {

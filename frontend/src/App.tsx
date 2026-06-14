@@ -14,23 +14,31 @@ import {
 import type { MenuProps } from "antd";
 import {
   ArrowLeftOutlined,
+  AppstoreOutlined,
   CheckCircleOutlined,
   CopyOutlined,
   DeleteOutlined,
   DownOutlined,
   ExportOutlined,
-  FileAddOutlined,
   PlusOutlined,
   SaveOutlined,
   StopOutlined,
 } from "@ant-design/icons";
 import { api, pickSavePath } from "./api";
-import type { Project, Section, SectionType, SlideModel, TemplateSummary } from "./types";
+import type {
+  Project,
+  Section,
+  SectionType,
+  SlideModel,
+  TemplateSummary,
+} from "./types";
 import { SECTION_TYPE_LABEL } from "./types";
 import { makeSection } from "./sectionFactory";
+import { resolveStyle } from "./styleResolve";
 import { ProjectListPage } from "./components/ProjectListPage";
 import { SectionEditor } from "./components/SectionEditor";
 import { SlidePreview } from "./components/SlidePreview";
+import { TemplateManager } from "./components/TemplateManager";
 
 type BackendState = "loading" | "ready" | "error";
 type Screen = "list" | "editor";
@@ -44,6 +52,7 @@ function Main() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [slides, setSlides] = useState<SlideModel[]>([]);
   const [newOpen, setNewOpen] = useState(false);
+  const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -53,10 +62,19 @@ function Main() {
   const [unsavedOpen, setUnsavedOpen] = useState(false);
   const pendingNav = useRef<(() => void) | null>(null);
   const previewTimer = useRef<number | null>(null);
+  const outlineItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const markProjectClean = useCallback((p: Project) => {
     setSavedSnapshot(JSON.stringify(p));
     setDirty(false);
+  }, []);
+
+  const refreshTemplates = useCallback(async () => {
+    try {
+      setTemplates(await api.listTemplates());
+    } catch {
+      // non-fatal
+    }
   }, []);
 
   // ---- backend bootstrap ----
@@ -64,14 +82,13 @@ function Main() {
     (async () => {
       try {
         await api.waitForBackend();
-        const tpls = await api.listTemplates();
-        setTemplates(tpls);
+        await refreshTemplates();
         setBackend("ready");
       } catch {
         setBackend("error");
       }
     })();
-  }, []);
+  }, [refreshTemplates]);
 
   // ---- dirty tracking ----
   useEffect(() => {
@@ -107,9 +124,38 @@ function Main() {
     [project, selectedId]
   );
 
-  const selectedSlides = useMemo(
-    () => slides.filter((s) => s.section_id === selectedId),
-    [slides, selectedId]
+  const selectedEffectiveStyle = useMemo(() => {
+    if (!selectedSection) return {};
+    return resolveStyle(selectedSection);
+  }, [selectedSection]);
+
+  /** Re-resolve styles client-side so style edits reflect instantly in preview. */
+  const displaySlides = useMemo(() => {
+    if (!project) return slides;
+    const sectionById = new Map(project.sections.map((s) => [s.id, s]));
+    return slides.map((sl) => {
+      const section = sectionById.get(sl.section_id);
+      if (!section) return sl;
+      return { ...sl, style: resolveStyle(section) };
+    });
+  }, [slides, project]);
+
+  const selectedDisplaySlides = useMemo(
+    () => displaySlides.filter((s) => s.section_id === selectedId),
+    [displaySlides, selectedId]
+  );
+
+  const selectSectionFromPreview = useCallback(
+    (sectionId: string) => {
+      if (!project?.sections.some((s) => s.id === sectionId)) return;
+      setSelectedId(sectionId);
+      window.requestAnimationFrame(() => {
+        outlineItemRefs.current[sectionId]?.scrollIntoView({
+          block: "nearest",
+        });
+      });
+    },
+    [project]
   );
 
   const guardNavigation = useCallback(
@@ -151,12 +197,8 @@ function Main() {
   );
 
   const requestNewProject = useCallback(() => {
-    if (screen === "editor") {
-      guardNavigation(() => setNewOpen(true));
-    } else {
-      setNewOpen(true);
-    }
-  }, [screen, guardNavigation]);
+    setNewOpen(true);
+  }, []);
 
   // ---- project ops ----
   const handleCreate = async (templateId: string, name: string) => {
@@ -271,6 +313,18 @@ function Main() {
     }
   };
 
+  const saveAsTemplate = async () => {
+    if (!project) return;
+    try {
+      await handleSave();
+      await api.templateFromProject(project.id, `${project.name} 模板`);
+      await refreshTemplates();
+      message.success("已另存为流程模板");
+    } catch (e: any) {
+      message.error(e.message ?? "另存为模板失败");
+    }
+  };
+
   const handleExport = async () => {
     if (!project) return;
     setExporting(true);
@@ -278,7 +332,7 @@ function Main() {
       const { issues: preIssues } = await api.validateProject(project);
       const errors = preIssues.filter((i) => i.level === "error");
       if (errors.length) {
-        Modal.confirm({
+        Modal.error({
           title: "导出前检查到问题",
           content: (
             <div>
@@ -286,6 +340,21 @@ function Main() {
                 <div key={idx} style={{ color: i.level === "error" ? "#ff7875" : "#d4b106" }}>
                   {i.level === "error" ? "✕ " : "! "}
                   {i.message}
+                </div>
+              ))}
+              <div style={{ marginTop: 8 }}>请修复错误后再导出。</div>
+            </div>
+          ),
+          okText: "返回修改",
+        });
+      } else if (preIssues.length) {
+        Modal.confirm({
+          title: "导出前检查到提醒",
+          content: (
+            <div>
+              {preIssues.map((i, idx) => (
+                <div key={idx} style={{ color: "#d4b106" }}>
+                  ! {i.message}
                 </div>
               ))}
               <div style={{ marginTop: 8 }}>仍要继续导出吗？</div>
@@ -355,7 +424,7 @@ function Main() {
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      if (mod && key === "n") {
+      if (mod && key === "n" && screen === "list") {
         e.preventDefault();
         requestNewProject();
         return;
@@ -437,11 +506,14 @@ function Main() {
         <div className="spacer" />
         {screen === "editor" && (
           <Space>
-            <Button icon={<FileAddOutlined />} onClick={requestNewProject}>
-              新建
+            <Button icon={<AppstoreOutlined />} onClick={() => setTemplateMgrOpen(true)}>
+              模板
             </Button>
             <Button icon={<CopyOutlined />} disabled={!project} onClick={duplicateProject}>
               复制工程
+            </Button>
+            <Button disabled={!project} onClick={saveAsTemplate}>
+              另存为模板
             </Button>
             <Button icon={<SaveOutlined />} disabled={!project} onClick={() => handleSave()}>
               保存
@@ -515,6 +587,9 @@ function Main() {
                     }}
                   >
                     <div
+                      ref={(el) => {
+                        outlineItemRefs.current[s.id] = el;
+                      }}
                       className={`outline-item${s.id === selectedId ? " active" : ""}${
                         s.enabled ? "" : " disabled"
                       }${overIndex === idx && dragIndex !== null && dragIndex !== idx ? " drag-over" : ""}${
@@ -555,16 +630,22 @@ function Main() {
                   <SectionEditor
                     key={selectedSection.id}
                     section={selectedSection}
+                    projectId={project.id}
+                    effectiveStyle={selectedEffectiveStyle}
                     onChange={(patch) => updateSection(selectedSection.id, patch)}
                   />
-                  {selectedSlides.length > 0 && (
+                  {selectedDisplaySlides.length > 0 && (
                     <>
                       <div className="panel-header" style={{ paddingLeft: 0, marginTop: 16 }}>
-                        本段落将生成 {selectedSlides.length} 页
+                        本段落将生成 {selectedDisplaySlides.length} 页
                       </div>
                       <div className="inline-preview-grid">
-                        {selectedSlides.map((sl, i) => (
-                          <SlidePreview key={i} slide={sl} />
+                        {selectedDisplaySlides.map((sl) => (
+                          <SlidePreview
+                            key={`${sl.section_id}-${sl.index}`}
+                            slide={sl}
+                            projectId={project.id}
+                          />
                         ))}
                       </div>
                     </>
@@ -577,10 +658,15 @@ function Main() {
 
             <div className="panel panel-preview">
               <div className="panel-header" style={{ paddingLeft: 4 }}>
-                整体预览（{slides.length} 页）
+                整体预览（{displaySlides.length} 页）
               </div>
-              {slides.map((sl, i) => (
-                <SlidePreview key={i} slide={sl} />
+              {displaySlides.map((sl) => (
+                <SlidePreview
+                  key={`${sl.section_id}-${sl.index}`}
+                  slide={sl}
+                  projectId={project.id}
+                  onClick={() => selectSectionFromPreview(sl.section_id)}
+                />
               ))}
             </div>
           </>
@@ -592,6 +678,12 @@ function Main() {
         templates={templates}
         onCancel={() => setNewOpen(false)}
         onCreate={handleCreate}
+      />
+
+      <TemplateManager
+        open={templateMgrOpen}
+        onClose={() => setTemplateMgrOpen(false)}
+        onChanged={refreshTemplates}
       />
 
       <Modal

@@ -37,8 +37,16 @@ def version() -> dict:
                     "cover",
                     "responsive_reading",
                     "scripture",
+                    "hymn",
                     "liturgy_text",
+                    "announcement",
+                    "media",
                 ],
+                "libraries": True,
+                "themes": False,
+                "media": True,
+                "templateImportExport": True,
+                "audioPlayback": True,
             },
         }
     )
