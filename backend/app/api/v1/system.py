@@ -46,7 +46,7 @@ def version() -> dict:
                 "themes": False,
                 "media": True,
                 "templateImportExport": True,
-                "audioPlayback": False,
+                "audioPlayback": True,
             },
         }
     )

@@ -51,6 +51,14 @@ export function makeSection(type: SectionType): Section {
     case "announcement":
       return { ...base, type, heading: "", items: [] };
     case "media":
-      return { ...base, type, caption: "", audio_ref: null, play_mode: "once", video_ref: null };
+      return {
+        ...base,
+        type,
+        caption: "",
+        audio_ref: null,
+        play_mode: "once",
+        audio_trigger: "click",
+        video_ref: null,
+      };
   }
 }

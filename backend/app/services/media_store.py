@@ -18,7 +18,7 @@ MEDIA_DIRNAME = "media"
 MEDIA_PREFIX = "media/"
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
-AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".aac", ".ogg"}
+AUDIO_EXTS = {".mp3", ".wav"}
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm"}
 ALLOWED_EXTS = IMAGE_EXTS | AUDIO_EXTS | VIDEO_EXTS
 

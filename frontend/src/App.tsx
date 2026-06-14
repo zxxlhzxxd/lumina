@@ -332,7 +332,7 @@ function Main() {
       const { issues: preIssues } = await api.validateProject(project);
       const errors = preIssues.filter((i) => i.level === "error");
       if (errors.length) {
-        Modal.confirm({
+        Modal.error({
           title: "导出前检查到问题",
           content: (
             <div>
@@ -340,6 +340,21 @@ function Main() {
                 <div key={idx} style={{ color: i.level === "error" ? "#ff7875" : "#d4b106" }}>
                   {i.level === "error" ? "✕ " : "! "}
                   {i.message}
+                </div>
+              ))}
+              <div style={{ marginTop: 8 }}>请修复错误后再导出。</div>
+            </div>
+          ),
+          okText: "返回修改",
+        });
+      } else if (preIssues.length) {
+        Modal.confirm({
+          title: "导出前检查到提醒",
+          content: (
+            <div>
+              {preIssues.map((i, idx) => (
+                <div key={idx} style={{ color: "#d4b106" }}>
+                  ! {i.message}
                 </div>
               ))}
               <div style={{ marginTop: 8 }}>仍要继续导出吗？</div>

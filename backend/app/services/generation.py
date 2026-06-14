@@ -40,6 +40,9 @@ class SlideModel(BaseModel):
     label: Optional[str] = None  # 启 / 应
     reference: Optional[str] = None
     body: Optional[str] = None
+    audio_ref: Optional[str] = None
+    play_mode: Optional[str] = None
+    audio_trigger: Optional[str] = None
     # Resolved (cascaded) style for this slide; consumed by preview + PPTX.
     style: Optional[dict] = None
 
@@ -231,7 +234,9 @@ def _media_slides(s: MediaSection) -> List[SlideModel]:
             section_id=s.id,
             section_type=s.type.value,
             body=s.caption or None,
-            subtitle=(f"♪ {s.audio_ref}" if s.audio_ref else None),
+            audio_ref=s.audio_ref,
+            play_mode=s.play_mode.value,
+            audio_trigger=s.audio_trigger.value,
         )
     ]
 

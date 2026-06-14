@@ -54,7 +54,8 @@ def preview(project: Project) -> dict:
 
 @router.post("/validate")
 def validate(project: Project) -> dict:
-    return ok({"issues": validate_project(project)})
+    media_root = project_store.media_root(project.id) if project.id else None
+    return ok({"issues": validate_project(project, media_root=media_root)})
 
 
 @router.post("/export")
@@ -67,7 +68,7 @@ def export(body: ExportBody) -> dict:
         out = settings.exports_dir / f"{_safe_filename(project.name)}.pptx"
     media_root = project_store.media_root(project.id) if project.id else None
     saved = export_project(project, out, media_root=media_root)
-    issues = validate_project(project)
+    issues = validate_project(project, media_root=media_root)
     return ok({"path": str(saved), "issues": issues})
 
 

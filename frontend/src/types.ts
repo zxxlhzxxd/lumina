@@ -11,6 +11,7 @@ export type SectionType =
 
 export type ReadingRole = "qi" | "ying";
 export type PlayMode = "once" | "loop";
+export type AudioTrigger = "click" | "auto";
 export type SlideSize = "16:9" | "4:3";
 
 export interface TextStyle {
@@ -95,6 +96,7 @@ export interface MediaSection extends SectionBase {
   caption: string;
   audio_ref: string | null;
   play_mode: PlayMode;
+  audio_trigger: AudioTrigger;
   video_ref: string | null;
 }
 
@@ -196,6 +198,9 @@ export interface SlideModel {
   label: string | null;
   reference: string | null;
   body: string | null;
+  audio_ref?: string | null;
+  play_mode?: PlayMode | null;
+  audio_trigger?: AudioTrigger | null;
   style?: SectionStyle | null;
 }
 

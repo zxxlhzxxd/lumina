@@ -109,7 +109,7 @@ ipcMain.handle("dialog:savePptx", async (_evt, defaultName) => {
 ipcMain.handle("dialog:pickMedia", async (_evt, kind) => {
   const filterMap = {
     image: { name: "图片", extensions: ["jpg", "jpeg", "png", "gif", "bmp", "webp"] },
-    audio: { name: "音频", extensions: ["mp3", "wav", "m4a", "aac", "ogg"] },
+    audio: { name: "音频", extensions: ["mp3", "wav"] },
     video: { name: "视频", extensions: ["mp4", "mov", "m4v", "webm"] },
   };
   const filters = filterMap[kind]

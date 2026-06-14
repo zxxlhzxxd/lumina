@@ -47,6 +47,11 @@ class PlayMode(str, Enum):
     LOOP = "loop"
 
 
+class AudioTrigger(str, Enum):
+    CLICK = "click"
+    AUTO = "auto"
+
+
 class SlideSize(str, Enum):
     WIDE = "16:9"
     STANDARD = "4:3"

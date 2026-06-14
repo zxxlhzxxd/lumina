@@ -245,12 +245,22 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
                   placeholder="如：请起立默祷"
                 />
               </Form.Item>
-              <Form.Item label="绑定音频" extra="按单击顺序播放将在后续版本接入">
+              <Form.Item label="绑定音频" extra="导出后会在页面右下角显示可编辑的小喇叭，支持 mp3 / wav">
                 <MediaPicker
                   kind="audio"
                   projectId={projectId}
                   value={section.audio_ref}
                   onChange={(ref) => patch({ audio_ref: ref } as Partial<Section>)}
+                />
+              </Form.Item>
+              <Form.Item label="播放时机">
+                <Segmented
+                  value={section.audio_trigger ?? "click"}
+                  onChange={(v) => patch({ audio_trigger: v as any } as Partial<Section>)}
+                  options={[
+                    { label: "点击后播放", value: "click" },
+                    { label: "进入页面自动播放", value: "auto" },
+                  ]}
                 />
               </Form.Item>
               <Form.Item label="播放模式（音频）">
