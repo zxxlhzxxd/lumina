@@ -1,5 +1,6 @@
-import { Button, Form, InputNumber, Segmented, Select, Space, Switch } from "antd";
+import { Button, Form, InputNumber, Space } from "antd";
 import type { Section, SectionStyle, TextStyle } from "../types";
+import { FontEditor } from "./FontEditor";
 import { MediaPicker } from "./MediaPicker";
 
 interface Props {
@@ -10,17 +11,6 @@ interface Props {
 }
 
 type TextRole = "body" | "title" | "label";
-
-const FONT_OPTIONS = [
-  { label: "使用默认", value: "" },
-  { label: "微软雅黑", value: "Microsoft YaHei" },
-  { label: "宋体", value: "SimSun" },
-  { label: "黑体", value: "SimHei" },
-  { label: "楷体", value: "KaiTi" },
-  { label: "仿宋", value: "FangSong" },
-  { label: "Arial", value: "Arial" },
-  { label: "Times New Roman", value: "Times New Roman" },
-];
 
 function ColorField({
   value,
@@ -58,18 +48,6 @@ function ColorField({
   );
 }
 
-function inheritFontSizeHint(
-  role: TextRole,
-  sectionStyle: SectionStyle,
-  effectiveStyle: SectionStyle
-): string {
-  const override = sectionStyle[role]?.font_size;
-  if (override != null) return "";
-  const inherited = effectiveStyle[role]?.font_size;
-  if (inherited == null) return "";
-  return `默认：${inherited}pt`;
-}
-
 export function StylePanel({
   section,
   projectId,
@@ -89,53 +67,15 @@ export function StylePanel({
 
   const textEditor = (role: TextRole, label: string) => {
     const ts = (style[role] ?? {}) as TextStyle;
-    const hint = inheritFontSizeHint(role, style, effectiveStyle);
+    const effective = (effectiveStyle[role] ?? {}) as TextStyle;
     return (
       <div className="style-workspace__text-role">
         <div className="style-workspace__role-label">{label}</div>
-        <Space wrap size={10}>
-          <Select
-            placeholder="字体"
-            style={{ width: 140 }}
-            value={ts.font_family ?? ""}
-            options={FONT_OPTIONS}
-            onChange={(v) => patchText(role, { font_family: v || null })}
-          />
-          <InputNumber
-            placeholder="字号"
-            min={8}
-            max={120}
-            value={ts.font_size ?? undefined}
-            onChange={(v) => patchText(role, { font_size: v ?? null })}
-            style={{ width: 90 }}
-            addonAfter="pt"
-          />
-          <ColorField
-            value={ts.color}
-            onChange={(v) => patchText(role, { color: v })}
-          />
-          <Segmented
-            size="small"
-            value={ts.align ?? "center"}
-            onChange={(v) => patchText(role, { align: v as TextStyle["align"] })}
-            options={[
-              { label: "左", value: "left" },
-              { label: "中", value: "center" },
-              { label: "右", value: "right" },
-            ]}
-          />
-          <Space size={4}>
-            <span style={{ fontSize: 12, color: "#9fb3c8" }}>加粗</span>
-            <Switch
-              size="small"
-              checked={!!ts.bold}
-              onChange={(v) => patchText(role, { bold: v })}
-            />
-          </Space>
-        </Space>
-        {hint && (
-          <div style={{ color: "#6b6b6b", fontSize: 12, marginTop: 4 }}>{hint}</div>
-        )}
+        <FontEditor
+          value={ts}
+          effectiveValue={effective}
+          onChange={(patch) => patchText(role, patch)}
+        />
       </div>
     );
   };
