@@ -60,11 +60,11 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
       <div className="editor-section">
         <Tag color="gold">{SECTION_TYPE_LABEL[section.type]}</Tag>
         <Form layout="vertical" style={{ marginTop: 12 }}>
-          <Form.Item label="段落名称">
+          <Form.Item label={section.type === "media" ? "标题" : "段落名称"}>
             <Input
               value={section.title}
               onChange={(e) => patch({ title: e.target.value } as Partial<Section>)}
-              placeholder="段落名称"
+              placeholder={section.type === "media" ? "输入媒体页标题" : "段落名称"}
             />
           </Form.Item>
 
@@ -238,11 +238,12 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "media" && (
             <>
-              <Form.Item label="文字说明">
-                <Input
-                  value={section.caption}
-                  onChange={(e) => patch({ caption: e.target.value } as Partial<Section>)}
-                  placeholder="如：请起立默祷"
+              <Form.Item label="正文">
+                <TextArea
+                  rows={8}
+                  value={section.body}
+                  onChange={(e) => patch({ body: e.target.value } as Partial<Section>)}
+                  placeholder="输入媒体页正文"
                 />
               </Form.Item>
               <Form.Item label="绑定音频" extra="导出后会在页面右下角显示可编辑的小喇叭，支持 mp3 / wav">
@@ -271,14 +272,6 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
                     { label: "播放一次", value: "once" },
                     { label: "循环", value: "loop" },
                   ]}
-                />
-              </Form.Item>
-              <Form.Item label="背景视频" extra="导出仅随容器携带，播放将在后续版本接入">
-                <MediaPicker
-                  kind="video"
-                  projectId={projectId}
-                  value={section.video_ref}
-                  onChange={(ref) => patch({ video_ref: ref } as Partial<Section>)}
                 />
               </Form.Item>
             </>
