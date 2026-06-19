@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import List, Literal, Optional, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from app.domain.enums import AudioTrigger, PlayMode, ReadingRole, SectionType
 from app.domain.style import SectionStyle
@@ -78,7 +78,7 @@ class AnnouncementSection(SectionBase):
 
 class MediaSection(SectionBase):
     type: Literal[SectionType.MEDIA] = SectionType.MEDIA
-    caption: str = ""
+    body: str = Field(default="", validation_alias=AliasChoices("body", "caption"))
     audio_ref: Optional[str] = None  # media ref inside project
     play_mode: PlayMode = PlayMode.ONCE
     audio_trigger: AudioTrigger = AudioTrigger.CLICK

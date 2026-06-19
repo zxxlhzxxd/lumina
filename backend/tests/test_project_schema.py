@@ -1,7 +1,7 @@
 import json
 
 from app.domain.project import Project
-from app.domain.sections import CoverSection
+from app.domain.sections import CoverSection, MediaSection
 from app.domain.style import SectionStyle, TextStyle
 from app.services.project_store import ProjectStore
 
@@ -19,6 +19,28 @@ def test_legacy_theme_id_is_ignored_on_save_shape():
     )
     data = json.loads(project.model_dump_json())
     assert "theme_id" not in data
+
+
+def test_legacy_media_caption_migrates_to_body():
+    project = Project.model_validate(
+        {
+            "sections": [
+                {
+                    "type": "media",
+                    "title": "起立默祷",
+                    "caption": "请起立默祷",
+                }
+            ]
+        }
+    )
+
+    section = project.sections[0]
+    assert isinstance(section, MediaSection)
+    assert section.body == "请起立默祷"
+
+    data = json.loads(project.model_dump_json())
+    assert data["sections"][0]["body"] == "请起立默祷"
+    assert "caption" not in data["sections"][0]
 
 
 def test_extended_font_style_fields_serialize_in_project():

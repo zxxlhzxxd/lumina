@@ -1,6 +1,6 @@
 """Tests for template save-from-project and import/export with media."""
 from app.domain.project import Project
-from app.domain.sections import CoverSection
+from app.domain.sections import CoverSection, MediaSection
 from app.domain.style import SectionStyle, TextStyle
 from app.services import media_store
 from app.services.template_store import TemplateStore
@@ -56,6 +56,18 @@ def test_builtin_template_readonly(temp_data_dir):
         store.delete("builtin-sunday")
     copy = store.duplicate("builtin-sunday")
     assert not copy.builtin
+
+
+def test_builtin_template_media_sections_use_body(temp_data_dir):
+    store = TemplateStore()
+    template = store.get("builtin-sunday")
+    assert template is not None
+
+    media_sections = [
+        section for section in template.sections if isinstance(section, MediaSection)
+    ]
+    assert media_sections[0].title == "起立默祷"
+    assert media_sections[0].body == "请起立默祷"
 
 
 def test_font_style_survives_template_copy_and_container_roundtrip(

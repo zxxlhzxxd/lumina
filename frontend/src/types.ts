@@ -95,7 +95,7 @@ export interface AnnouncementSection extends SectionBase {
 
 export interface MediaSection extends SectionBase {
   type: "media";
-  caption: string;
+  body: string;
   audio_ref: string | null;
   play_mode: PlayMode;
   audio_trigger: AudioTrigger;
