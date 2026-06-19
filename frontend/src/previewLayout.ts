@@ -115,12 +115,22 @@ function roleStyle(
   const css: CSSProperties = {
     fontSize: ptToPx(pt, scale),
     fontWeight: ts.bold != null ? (ts.bold ? 700 : 400) : defaults.bold ? 700 : 400,
+    fontStyle: ts.italic ? "italic" : "normal",
+    textDecoration: ts.underline ? "underline" : "none",
     color: ts.color ?? defaults.color ?? DEFAULT_TEXT_COLOR,
     textAlign: ts.align ?? defaults.align ?? "center",
     fontFamily: cssFontFamily(ts.font_family ?? defaults.font ?? DEFAULT_FONT),
   };
   if (ts.line_spacing) css.lineHeight = ts.line_spacing;
   return css;
+}
+
+export function textRunStyle(
+  slideStyle: SectionStyle | null | undefined,
+  role: "title" | "body" | "label"
+): CSSProperties {
+  const ts = (slideStyle?.[role] ?? {}) as TextStyle;
+  return ts.highlight_color ? { backgroundColor: ts.highlight_color } : {};
 }
 
 function vAlignStyle(v: TextBoxLayout["vAlign"]): CSSProperties {

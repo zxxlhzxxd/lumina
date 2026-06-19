@@ -29,3 +29,25 @@ def test_section_background_override_wins():
     section = HymnSection(style=SectionStyle(background_color="#123456"))
     resolved = resolve_style(section)
     assert resolved.background_color == "#123456"
+
+
+def test_explicit_false_overrides_inherited_boolean_style():
+    section = HymnSection(style=SectionStyle(body=TextStyle(bold=False)))
+    resolved = resolve_style(section)
+    assert resolved.body.bold is False
+
+
+def test_extended_font_style_fields_survive_resolution():
+    section = CoverSection(
+        style=SectionStyle(
+            title=TextStyle(
+                italic=True,
+                underline=True,
+                highlight_color="#FFF200",
+            )
+        )
+    )
+    resolved = resolve_style(section)
+    assert resolved.title.italic is True
+    assert resolved.title.underline is True
+    assert resolved.title.highlight_color == "#FFF200"

@@ -16,6 +16,8 @@ class TextStyle(BaseModel):
     color: Optional[str] = None  # hex e.g. "#FFFFFF"
     bold: Optional[bool] = None
     italic: Optional[bool] = None
+    underline: Optional[bool] = None
+    highlight_color: Optional[str] = None  # PowerPoint text highlight
     align: Optional[str] = None  # left | center | right
     line_spacing: Optional[float] = None
 
