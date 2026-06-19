@@ -4,6 +4,7 @@ import {
   boxStyle,
   computePreviewScale,
   slideTextBoxes,
+  textRunStyle,
 } from "../previewLayout";
 import type { SlideModel } from "../types";
 
@@ -83,7 +84,14 @@ export function SlidePreview({
             className="slide-card__text"
             style={boxStyle(box, style, scale)}
           >
-            {box.text}
+            <div className="slide-card__text-line">
+              <span
+                className="slide-card__text-run"
+                style={textRunStyle(style, box.role)}
+              >
+                {box.text}
+              </span>
+            </div>
           </div>
         ))}
       </div>

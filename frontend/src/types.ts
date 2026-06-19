@@ -20,6 +20,8 @@ export interface TextStyle {
   color?: string | null;
   bold?: boolean | null;
   italic?: boolean | null;
+  underline?: boolean | null;
+  highlight_color?: string | null;
   align?: "left" | "center" | "right" | null;
   line_spacing?: number | null;
 }

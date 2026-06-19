@@ -20,7 +20,7 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 from pptx.opc.package import PartFactory
 from pptx.oxml import parse_xml
-from pptx.oxml.ns import qn
+from pptx.oxml.ns import nsdecls, qn
 from pptx.parts.media import MediaPart
 from pptx.util import Emu, Inches, Pt
 
@@ -88,11 +88,50 @@ def _role(style: Optional[dict], role: str) -> dict:
     return style.get(role) or {}
 
 
-def _set_font(run, *, size: float, bold: bool, color: RGBColor, font: str) -> None:
+def _set_text_highlight(run, color: Optional[RGBColor]) -> None:
+    if color is None:
+        return
+    rpr = run._r.get_or_add_rPr()
+    highlight = parse_xml(
+        f'<a:highlight {nsdecls("a")}>'
+        f'<a:srgbClr val="{str(color)}"/>'
+        "</a:highlight>"
+    )
+    rpr.insert_element_before(
+        highlight,
+        "a:uLnTx",
+        "a:uLn",
+        "a:uFillTx",
+        "a:uFill",
+        "a:latin",
+        "a:ea",
+        "a:cs",
+        "a:sym",
+        "a:hlinkClick",
+        "a:hlinkMouseOver",
+        "a:rtl",
+        "a:extLst",
+    )
+
+
+def _set_font(
+    run,
+    *,
+    size: float,
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    color: RGBColor,
+    highlight_color: Optional[RGBColor],
+    font: str,
+) -> None:
     run.font.size = Pt(size)
     run.font.bold = bold
+    run.font.italic = italic
+    run.font.underline = underline
     run.font.color.rgb = color
     run.font.name = font
+    _set_text_highlight(run, highlight_color)
     rpr = run._r.get_or_add_rPr()
     for tag in ("a:ea", "a:cs"):
         el = rpr.find(qn(tag))
@@ -286,7 +325,10 @@ class PptxBuilder:
         ts = _role(sm.style, role)
         size = ts.get("font_size") or size
         bold = ts.get("bold") if ts.get("bold") is not None else bold
+        italic = ts.get("italic") if ts.get("italic") is not None else False
+        underline = ts.get("underline") if ts.get("underline") is not None else False
         color = _hex_to_rgb(ts.get("color")) or color
+        highlight_color = _hex_to_rgb(ts.get("highlight_color"))
         font = ts.get("font_family") or CJK_FONT
         align = _ALIGN.get(ts.get("align"), align)
         line_spacing = ts.get("line_spacing") or line_spacing
@@ -302,7 +344,16 @@ class PptxBuilder:
             para.line_spacing = line_spacing
             run = para.add_run()
             run.text = line
-            _set_font(run, size=size, bold=bool(bold), color=color, font=font)
+            _set_font(
+                run,
+                size=size,
+                bold=bool(bold),
+                italic=bool(italic),
+                underline=bool(underline),
+                color=color,
+                highlight_color=highlight_color,
+                font=font,
+            )
         return box
 
     # ---- rendering -------------------------------------------------------
