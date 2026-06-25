@@ -54,7 +54,7 @@ export function makeSection(type: SectionType): Section {
       return {
         ...base,
         type,
-        caption: "",
+        body: "",
         audio_ref: null,
         play_mode: "once",
         audio_trigger: "click",

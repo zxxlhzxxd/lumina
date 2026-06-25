@@ -41,7 +41,7 @@ def _new_id() -> str:
 def _default_sunday_template() -> ServiceTemplate:
     sections = [
         CoverSection(title="礼拜封面", main_title="主日崇拜", sub_title=""),
-        MediaSection(title="起立默祷", caption="请起立默祷", play_mode=PlayMode.ONCE),
+        MediaSection(title="起立默祷", body="请起立默祷", play_mode=PlayMode.ONCE),
         ResponsiveReadingSection(title="启应经文", reference=""),
         LiturgyTextSection(
             title="使徒信经",
@@ -66,7 +66,7 @@ def _default_sunday_template() -> ServiceTemplate:
             liturgy_id="builtin-lords-prayer",
             paragraphs=list(LORDS_PRAYER),
         ),
-        MediaSection(title="阿门颂", caption="", play_mode=PlayMode.ONCE),
+        MediaSection(title="阿门颂", body="", play_mode=PlayMode.ONCE),
     ]
     return ServiceTemplate(
         id=BUILTIN_SUNDAY_ID,

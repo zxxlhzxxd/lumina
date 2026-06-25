@@ -184,7 +184,8 @@ flowchart LR
 - `mainTitle`（如证道题目）、`subTitle`、可选经文出处/牧者/日期。
 
 #### 4.5.7 media（媒体页）
-- `audioRef?`（本页绑定的音频文件）、`playMode`（`once` 一次 / `loop` 循环）、`videoRef?`（阶段三）、可选 `caption` 文字（如「请起立默祷」）。
+- `title`（标题）、`body`（多行正文）、`audioRef?`（本页绑定的音频文件）、`playMode`（`once` 一次 / `loop` 循环）、`videoRef?`（阶段三）。
+- 标题与正文显示在同一媒体页；正文支持多行文本，不自动分页。
 - **播放交互（按单击顺序播放 In Click Sequence）**：进入本页先显示文字；第一次点击（正常翻页键/鼠标）**播放绑定音乐**，再次点击才**翻到下一页**。`once` 播放一遍即止；`loop` 循环直到翻页。
 - 音频处理见 §6.4.2。
 

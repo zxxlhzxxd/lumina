@@ -62,7 +62,8 @@ def test_liturgy_pagination():
 
 def test_media_slide_carries_audio_playback_fields():
     s = MediaSection(
-        caption="请起立默祷",
+        title="起立默祷",
+        body="请起立默祷\n静候音乐结束",
         audio_ref="media/prayer.wav",
         play_mode="loop",
         audio_trigger="auto",
@@ -70,7 +71,8 @@ def test_media_slide_carries_audio_playback_fields():
     slides = build_section_slides(s)
     assert len(slides) == 1
     assert slides[0].kind == "media"
-    assert slides[0].body == "请起立默祷"
+    assert slides[0].title == "起立默祷"
+    assert slides[0].body == "请起立默祷\n静候音乐结束"
     assert slides[0].audio_ref == "media/prayer.wav"
     assert slides[0].play_mode == "loop"
     assert slides[0].audio_trigger == "auto"
