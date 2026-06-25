@@ -23,7 +23,36 @@ export interface TextStyle {
   underline?: boolean | null;
   highlight_color?: string | null;
   align?: "left" | "center" | "right" | null;
+  vertical_align?: "top" | "middle" | "bottom" | null;
   line_spacing?: number | null;
+}
+
+export type BlockAnchor =
+  | "top_left"
+  | "top_center"
+  | "top_right"
+  | "middle_left"
+  | "middle_center"
+  | "middle_right"
+  | "bottom_left"
+  | "bottom_center"
+  | "bottom_right";
+
+export interface EdgeInsets {
+  top?: number | null;
+  right?: number | null;
+  bottom?: number | null;
+  left?: number | null;
+}
+
+export interface BlockLayout {
+  anchor?: BlockAnchor | null;
+  margin?: EdgeInsets | null;
+}
+
+export interface TextBlockStyle {
+  text?: TextStyle | null;
+  layout?: BlockLayout | null;
 }
 
 export interface SectionStyle {
@@ -34,6 +63,7 @@ export interface SectionStyle {
   title?: TextStyle | null;
   label?: TextStyle | null;
   margin?: number | null;
+  blocks?: Record<string, TextBlockStyle> | null;
 }
 
 export interface SectionBase {

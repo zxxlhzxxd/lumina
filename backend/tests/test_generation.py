@@ -8,6 +8,7 @@ from app.domain.sections import (
     ResponsiveReadingSection,
     ScriptureSection,
 )
+from app.domain.style import BlockLayout, SectionStyle, TextBlockStyle, TextStyle
 from app.services.generation import build_section_slides, build_slides
 
 
@@ -81,3 +82,26 @@ def test_build_slides_injects_resolved_style():
     assert slides[0].style is not None
     assert slides[0].style["background_color"] == "#F7F3E9"
     assert slides[0].style["body"]["font_size"] == 32
+
+
+def test_build_slides_omits_empty_block_style_fields():
+    project = Project(
+        sections=[
+            CoverSection(
+                main_title="标题",
+                style=SectionStyle(
+                    blocks={
+                        "title": TextBlockStyle(
+                            text=TextStyle(vertical_align="bottom"),
+                            layout=BlockLayout(anchor="bottom_center"),
+                        )
+                    }
+                ),
+            )
+        ]
+    )
+    style = build_slides(project)[0].style
+    assert style["title"]["font_family"] == "Microsoft YaHei"
+    assert style["title"]["font_size"] == 54
+    assert style["blocks"]["title"]["text"] == {"vertical_align": "bottom"}
+    assert style["blocks"]["title"]["layout"] == {"anchor": "bottom_center"}
