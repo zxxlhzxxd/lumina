@@ -270,7 +270,7 @@ def build_slides(
         if not section.enabled:
             continue
         section_slides = build_section_slides(section, resolve)
-        style = resolve_style(section).model_dump()
+        style = resolve_style(section).model_dump(exclude_none=True)
         for sm in section_slides:
             sm.style = style
         slides.extend(section_slides)

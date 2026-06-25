@@ -10,6 +10,7 @@ import type {
   SlideSize,
   TextStyle,
 } from "./types";
+import { mergeTextStyle } from "./styleResolve";
 
 export const SLIDE_H_IN = 7.5;
 export const WIDE_SLIDE_W_IN = 13.333;
@@ -168,7 +169,7 @@ function roleStyle(
 ): CSSProperties {
   const roleText = (slideStyle?.[role] ?? {}) as TextStyle;
   const blockText = slideStyle?.blocks?.[blockId]?.text ?? {};
-  const ts = { ...roleText, ...blockText } as TextStyle;
+  const ts = mergeTextStyle(roleText, blockText) ?? {};
   const pt = ts.font_size ?? defaults.pt;
   const css: CSSProperties = {
     fontSize: ptToPx(pt, scale),
@@ -188,10 +189,11 @@ export function textRunStyle(
   role: "title" | "body" | "label",
   blockId: string
 ): CSSProperties {
-  const ts = {
-    ...((slideStyle?.[role] ?? {}) as TextStyle),
-    ...(slideStyle?.blocks?.[blockId]?.text ?? {}),
-  };
+  const ts =
+    mergeTextStyle(
+      (slideStyle?.[role] ?? {}) as TextStyle,
+      slideStyle?.blocks?.[blockId]?.text
+    ) ?? {};
   return ts.highlight_color ? { backgroundColor: ts.highlight_color } : {};
 }
 

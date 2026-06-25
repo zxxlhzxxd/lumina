@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { FontEditor } from "./FontEditor";
 import { MediaPicker } from "./MediaPicker";
+import { mergeTextStyle } from "../styleResolve";
 
 interface Props {
   section: Section;
@@ -121,10 +122,9 @@ export function StylePanel({
     const block = style.blocks?.[blockId] ?? {};
     const effectiveBlock = effectiveStyle.blocks?.[blockId] ?? {};
     const ts = block.text ?? {};
-    const effective = {
-      ...((effectiveStyle[role] ?? {}) as TextStyle),
-      ...(effectiveBlock.text ?? {}),
-    };
+    const effective =
+      mergeTextStyle((effectiveStyle[role] ?? {}) as TextStyle, effectiveBlock.text) ??
+      {};
     return (
       <div className="style-workspace__text-role">
         <div className="style-workspace__role-label">{label}</div>
