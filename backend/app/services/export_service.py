@@ -24,78 +24,48 @@ def validate_project(
     project: Project,
     media_root: Optional[Path] = None,
 ) -> List[dict]:
-    """Return a list of {level, section_id, message} issues (non-fatal warnings)."""
+    """Return a list of validation issues, including section names for display."""
     issues: List[dict] = []
+
+    def add_issue(level: str, section, message: str) -> None:
+        section_title = section.title or section.type.value
+        issues.append(
+            {
+                "level": level,
+                "section_id": section.id,
+                "section_title": section_title,
+                "message": f"段落「{section_title}」：{message}",
+            }
+        )
+
     for section in project.sections:
         if not section.enabled:
             continue
         if isinstance(section, (ResponsiveReadingSection, ScriptureSection)):
             ref = section.reference.strip()
             if not ref:
-                issues.append(
-                    {
-                        "level": "warning",
-                        "section_id": section.id,
-                        "message": f"段落「{section.title or section.type.value}」未填写经文引用",
-                    }
-                )
+                add_issue("warning", section, "未填写经文引用")
                 continue
             try:
                 bible_service.parse_reference(ref)
             except AppError as e:
-                issues.append(
-                    {
-                        "level": "error",
-                        "section_id": section.id,
-                        "message": f"经文引用无效: {ref} — {e.message}",
-                    }
-                )
+                add_issue("error", section, f"经文引用无效: {ref} — {e.message}")
         if isinstance(section, CoverSection) and not section.main_title.strip():
-            issues.append(
-                {
-                    "level": "warning",
-                    "section_id": section.id,
-                    "message": "封面/标题页未填写标题",
-                }
-            )
+            add_issue("warning", section, "封面/标题页未填写标题")
         if isinstance(section, MediaSection) and section.audio_ref:
             if media_root is None:
-                issues.append(
-                    {
-                        "level": "error",
-                        "section_id": section.id,
-                        "message": "音频导出需要先保存工程",
-                    }
-                )
+                add_issue("error", section, "音频导出需要先保存工程")
                 continue
             try:
                 path = media_store.media_path(media_root, section.audio_ref)
             except AppError as e:
-                issues.append(
-                    {
-                        "level": "error",
-                        "section_id": section.id,
-                        "message": f"音频路径无效: {e.message}",
-                    }
-                )
+                add_issue("error", section, f"音频路径无效: {e.message}")
                 continue
             if path is None or not path.exists():
-                issues.append(
-                    {
-                        "level": "error",
-                        "section_id": section.id,
-                        "message": f"音频文件不存在: {section.audio_ref}",
-                    }
-                )
+                add_issue("error", section, f"音频文件不存在: {section.audio_ref}")
                 continue
             if path.suffix.lower() not in AUDIO_EXPORT_EXTS:
-                issues.append(
-                    {
-                        "level": "error",
-                        "section_id": section.id,
-                        "message": "音频导出仅支持 mp3 / wav，请重新选择音频文件",
-                    }
-                )
+                add_issue("error", section, "音频导出仅支持 mp3 / wav，请重新选择音频文件")
     return issues
 
 

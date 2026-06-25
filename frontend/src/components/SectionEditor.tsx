@@ -47,11 +47,9 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
   const insertLiturgy = (text: LiturgyText) => {
     patch({
       liturgy_id: text.id || null,
+      slide_title: text.title,
       paragraphs: text.paragraphs,
     } as Partial<Section>);
-    if (!section.title && text.title) {
-      patch({ title: text.title } as Partial<Section>);
-    }
     setLiturgyLibOpen(false);
   };
 
@@ -60,14 +58,6 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
       <div className="editor-section">
         <Tag color="gold">{SECTION_TYPE_LABEL[section.type]}</Tag>
         <Form layout="vertical" style={{ marginTop: 12 }}>
-          <Form.Item label={section.type === "media" ? "标题" : "段落名称"}>
-            <Input
-              value={section.title}
-              onChange={(e) => patch({ title: e.target.value } as Partial<Section>)}
-              placeholder={section.type === "media" ? "输入媒体页标题" : "段落名称"}
-            />
-          </Form.Item>
-
           {section.type === "cover" && (
             <>
               <Form.Item label="主标题">
@@ -145,6 +135,15 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "liturgy_text" && (
             <>
+              <Form.Item label="PPT 页面标题">
+                <Input
+                  value={section.slide_title}
+                  onChange={(e) =>
+                    patch({ slide_title: e.target.value } as Partial<Section>)
+                  }
+                  placeholder="输入礼文页标题"
+                />
+              </Form.Item>
               <Form.Item>
                 <Button icon={<BookOutlined />} onClick={() => setLiturgyLibOpen(true)}>
                   从礼文库选择
@@ -218,7 +217,7 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "announcement" && (
             <>
-              <Form.Item label="标题">
+              <Form.Item label="PPT 页面标题">
                 <Input
                   value={section.heading}
                   onChange={(e) => patch({ heading: e.target.value } as Partial<Section>)}
@@ -238,6 +237,15 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "media" && (
             <>
+              <Form.Item label="PPT 页面标题">
+                <Input
+                  value={section.slide_title}
+                  onChange={(e) =>
+                    patch({ slide_title: e.target.value } as Partial<Section>)
+                  }
+                  placeholder="输入媒体页标题"
+                />
+              </Form.Item>
               <Form.Item label="正文">
                 <TextArea
                   rows={8}

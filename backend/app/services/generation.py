@@ -154,6 +154,7 @@ def _liturgy_slides(s: LiturgyTextSection) -> List[SlideModel]:
     paragraphs = [p for p in s.paragraphs if p.strip()]
     slides: List[SlideModel] = []
     capacity = max(20, s.chars_per_slide)
+    title = s.slide_title or None
     for i, page in enumerate(_paginate(paragraphs, capacity)):
         slides.append(
             SlideModel(
@@ -161,7 +162,7 @@ def _liturgy_slides(s: LiturgyTextSection) -> List[SlideModel]:
                 section_id=s.id,
                 section_type=s.type.value,
                 index=i,
-                title=s.title if i == 0 else None,
+                title=title if i == 0 else None,
                 body=page,
             )
         )
@@ -171,7 +172,7 @@ def _liturgy_slides(s: LiturgyTextSection) -> List[SlideModel]:
                 kind="liturgy",
                 section_id=s.id,
                 section_type=s.type.value,
-                title=s.title or None,
+                title=title,
                 body="",
             )
         )
@@ -221,7 +222,7 @@ def _announcement_slides(s: AnnouncementSection) -> List[SlideModel]:
             kind="announcement",
             section_id=s.id,
             section_type=s.type.value,
-            title=s.heading or s.title or "家事报告",
+            title=s.heading or "家事报告",
             body=body or None,
         )
     ]
@@ -233,7 +234,7 @@ def _media_slides(s: MediaSection) -> List[SlideModel]:
             kind="media",
             section_id=s.id,
             section_type=s.type.value,
-            title=s.title or None,
+            title=s.slide_title or None,
             body=s.body or None,
             audio_ref=s.audio_ref,
             play_mode=s.play_mode.value,

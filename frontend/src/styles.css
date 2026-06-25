@@ -127,6 +127,7 @@ body {
 
 .outline-item .title {
   flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -135,6 +136,31 @@ body {
 .outline-item.disabled .title {
   color: #6b6b6b;
   text-decoration: line-through;
+}
+
+.outline-item .outline-action-wrap {
+  display: inline-flex;
+  flex: 0 0 24px;
+}
+
+.outline-item .outline-action.ant-btn {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  color: #9a9a9a;
+  opacity: 0;
+}
+
+.outline-item:hover .outline-action.ant-btn,
+.outline-item.active .outline-action.ant-btn,
+.outline-item:focus-within .outline-action.ant-btn {
+  opacity: 1;
+}
+
+.outline-item .outline-action.ant-btn:hover {
+  color: #f5f5f5;
+  background: #303030;
 }
 
 .slide-card {

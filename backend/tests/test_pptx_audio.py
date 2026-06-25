@@ -116,11 +116,13 @@ def test_auto_audio_starts_immediately(tmp_path):
 
 
 def test_audio_validation_reports_missing_file(tmp_path):
-    project = Project(sections=[MediaSection(audio_ref="media/missing.wav")])
+    project = Project(sections=[MediaSection(title="默祷音频", audio_ref="media/missing.wav")])
     issues = validate_project(project, media_root=tmp_path / "work")
 
     assert issues
     assert issues[0]["level"] == "error"
+    assert issues[0]["section_title"] == "默祷音频"
+    assert "段落「默祷音频」" in issues[0]["message"]
     assert "音频文件不存在" in issues[0]["message"]
 
 

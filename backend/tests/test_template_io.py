@@ -66,7 +66,8 @@ def test_builtin_template_media_sections_use_body(temp_data_dir):
     media_sections = [
         section for section in template.sections if isinstance(section, MediaSection)
     ]
-    assert media_sections[0].title == "起立默祷"
+    assert media_sections[0].title == "媒体：起立默祷"
+    assert media_sections[0].slide_title == "起立默祷"
     assert media_sections[0].body == "请起立默祷"
 
 

@@ -10,6 +10,7 @@ import {
   Space,
   Spin,
   Tag,
+  Tooltip,
 } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -19,7 +20,9 @@ import {
   CopyOutlined,
   DeleteOutlined,
   DownOutlined,
+  EditOutlined,
   ExportOutlined,
+  MenuOutlined,
   PlusOutlined,
   SaveOutlined,
   StopOutlined,
@@ -60,6 +63,9 @@ function Main() {
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [listRefreshKey, setListRefreshKey] = useState(0);
   const [unsavedOpen, setUnsavedOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const pendingNav = useRef<(() => void) | null>(null);
   const previewTimer = useRef<number | null>(null);
   const outlineItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -128,6 +134,11 @@ function Main() {
     if (!selectedSection) return {};
     return resolveStyle(selectedSection);
   }, [selectedSection]);
+
+  const deletingSection = useMemo(
+    () => project?.sections.find((s) => s.id === deletingId) ?? null,
+    [project, deletingId]
+  );
 
   /** Re-resolve styles client-side so style edits reflect instantly in preview. */
   const displaySlides = useMemo(() => {
@@ -287,6 +298,17 @@ function Main() {
     });
   };
 
+  const requestDeleteSection = (id: string) => {
+    if (!project?.sections.some((s) => s.id === id)) return;
+    setDeletingId(id);
+  };
+
+  const confirmDeleteSection = () => {
+    if (!deletingId) return;
+    deleteSection(deletingId);
+    setDeletingId(null);
+  };
+
   const toggleSection = (id: string) => {
     setProject((prev) =>
       prev
@@ -298,6 +320,18 @@ function Main() {
           }
         : prev
     );
+  };
+
+  const openRenameSection = (section: Section) => {
+    setRenamingId(section.id);
+    setRenameValue(section.title);
+  };
+
+  const confirmRenameSection = () => {
+    if (!renamingId) return;
+    updateSection(renamingId, { title: renameValue } as Partial<Section>);
+    setRenamingId(null);
+    setRenameValue("");
   };
 
   const duplicateProject = async () => {
@@ -447,16 +481,16 @@ function Main() {
         const tag = el?.tagName;
         const editable =
           tag === "INPUT" || tag === "TEXTAREA" || !!el?.isContentEditable;
-        if (!editable) {
+        if (!editable && deletingId === null && renamingId === null) {
           e.preventDefault();
-          deleteSection(selectedId);
+          requestDeleteSection(selectedId);
         }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, selectedId, screen, requestNewProject]);
+  }, [project, selectedId, screen, requestNewProject, deletingId, renamingId]);
 
   // ---- render ----
   if (backend === "loading") {
@@ -559,67 +593,86 @@ function Main() {
               </div>
               <div className="outline-list">
                 {project.sections.map((s, idx) => (
-                  <Dropdown
+                  <div
                     key={s.id}
-                    trigger={["contextMenu"]}
-                    menu={{
-                      items: [
-                        { key: "duplicate", icon: <CopyOutlined />, label: "复制段落" },
-                        {
-                          key: "toggle",
-                          icon: s.enabled ? <StopOutlined /> : <CheckCircleOutlined />,
-                          label: s.enabled ? "停用（不导出）" : "启用",
-                        },
-                        { type: "divider" },
-                        {
-                          key: "delete",
-                          icon: <DeleteOutlined />,
-                          label: "删除段落",
-                          danger: true,
-                        },
-                      ] as MenuProps["items"],
-                      onClick: ({ key, domEvent }) => {
-                        domEvent.stopPropagation();
-                        if (key === "duplicate") duplicateSection(s.id);
-                        else if (key === "toggle") toggleSection(s.id);
-                        else if (key === "delete") deleteSection(s.id);
-                      },
+                    ref={(el) => {
+                      outlineItemRefs.current[s.id] = el;
+                    }}
+                    className={`outline-item${s.id === selectedId ? " active" : ""}${
+                      s.enabled ? "" : " disabled"
+                    }${overIndex === idx && dragIndex !== null && dragIndex !== idx ? " drag-over" : ""}${
+                      dragIndex === idx ? " dragging" : ""
+                    }`}
+                    draggable
+                    onClick={() => setSelectedId(s.id)}
+                    onDragStart={() => setDragIndex(idx)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (overIndex !== idx) setOverIndex(idx);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null) reorderSection(dragIndex, idx);
+                      setDragIndex(null);
+                      setOverIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setOverIndex(null);
                     }}
                   >
-                    <div
-                      ref={(el) => {
-                        outlineItemRefs.current[s.id] = el;
-                      }}
-                      className={`outline-item${s.id === selectedId ? " active" : ""}${
-                        s.enabled ? "" : " disabled"
-                      }${overIndex === idx && dragIndex !== null && dragIndex !== idx ? " drag-over" : ""}${
-                        dragIndex === idx ? " dragging" : ""
-                      }`}
-                      draggable
-                      onClick={() => setSelectedId(s.id)}
-                      onDragStart={() => setDragIndex(idx)}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        if (overIndex !== idx) setOverIndex(idx);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (dragIndex !== null) reorderSection(dragIndex, idx);
-                        setDragIndex(null);
-                        setOverIndex(null);
-                      }}
-                      onDragEnd={() => {
-                        setDragIndex(null);
-                        setOverIndex(null);
-                      }}
+                    <span className="drag-handle" aria-hidden>
+                      ⠿
+                    </span>
+                    <Tag style={{ margin: 0 }}>{SECTION_TYPE_LABEL[s.type]}</Tag>
+                    <span className="title">{s.title || "（未命名）"}</span>
+                    <span
+                      className="outline-action-wrap"
+                      draggable={false}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
-                      <span className="drag-handle" aria-hidden>
-                        ⠿
-                      </span>
-                      <Tag style={{ margin: 0 }}>{SECTION_TYPE_LABEL[s.type]}</Tag>
-                      <span className="title">{s.title || "（未命名）"}</span>
-                    </div>
-                  </Dropdown>
+                      <Dropdown
+                        trigger={["click"]}
+                        menu={{
+                          items: [
+                            { key: "rename", icon: <EditOutlined />, label: "重命名段落" },
+                            { key: "duplicate", icon: <CopyOutlined />, label: "复制段落" },
+                            {
+                              key: "toggle",
+                              icon: s.enabled ? <StopOutlined /> : <CheckCircleOutlined />,
+                              label: s.enabled ? "停用（不导出）" : "启用",
+                            },
+                            { type: "divider" },
+                            {
+                              key: "delete",
+                              icon: <DeleteOutlined />,
+                              label: "删除段落",
+                              danger: true,
+                            },
+                          ] as MenuProps["items"],
+                          onClick: ({ key, domEvent }) => {
+                            domEvent.stopPropagation();
+                            if (key === "rename") openRenameSection(s);
+                            else if (key === "duplicate") duplicateSection(s.id);
+                            else if (key === "toggle") toggleSection(s.id);
+                            else if (key === "delete") requestDeleteSection(s.id);
+                          },
+                        }}
+                      >
+                        <Tooltip title="段落菜单" placement="right">
+                          <Button
+                            className="outline-action"
+                            type="text"
+                            size="small"
+                            icon={<MenuOutlined />}
+                            aria-label="段落菜单"
+                            draggable={false}
+                          />
+                        </Tooltip>
+                      </Dropdown>
+                    </span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -687,6 +740,38 @@ function Main() {
         onClose={() => setTemplateMgrOpen(false)}
         onChanged={refreshTemplates}
       />
+
+      <Modal
+        title="重命名段落"
+        open={renamingId !== null}
+        onCancel={() => {
+          setRenamingId(null);
+          setRenameValue("");
+        }}
+        onOk={confirmRenameSection}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Input
+          value={renameValue}
+          autoFocus
+          placeholder="段落名称"
+          onChange={(e) => setRenameValue(e.target.value)}
+          onPressEnter={confirmRenameSection}
+        />
+      </Modal>
+
+      <Modal
+        title="删除段落"
+        open={deletingId !== null}
+        onCancel={() => setDeletingId(null)}
+        onOk={confirmDeleteSection}
+        okText="删除"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+      >
+        确定删除段落「{deletingSection?.title || "（未命名）"}」吗？
+      </Modal>
 
       <Modal
         title="未保存的修改"

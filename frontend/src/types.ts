@@ -113,6 +113,7 @@ export interface HymnSection extends SectionBase {
 export interface LiturgyTextSection extends SectionBase {
   type: "liturgy_text";
   liturgy_id: string | null;
+  slide_title: string;
   paragraphs: string[];
   chars_per_slide: number;
 }
@@ -125,6 +126,7 @@ export interface AnnouncementSection extends SectionBase {
 
 export interface MediaSection extends SectionBase {
   type: "media";
+  slide_title: string;
   body: string;
   audio_ref: string | null;
   play_mode: PlayMode;
@@ -239,6 +241,7 @@ export interface SlideModel {
 export interface ValidationIssue {
   level: "warning" | "error";
   section_id: string;
+  section_title?: string;
   message: string;
 }
 

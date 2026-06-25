@@ -54,15 +54,21 @@ def test_cover_single_slide():
 
 def test_liturgy_pagination():
     s = LiturgyTextSection(
-        title="使徒信经", paragraphs=["第一段" * 10, "第二段" * 10], chars_per_slide=25
+        title="礼文段落",
+        slide_title="使徒信经",
+        paragraphs=["第一段" * 10, "第二段" * 10],
+        chars_per_slide=25,
     )
     slides = build_section_slides(s)
     assert len(slides) == 2
+    assert slides[0].title == "使徒信经"
+    assert slides[1].title is None
 
 
 def test_media_slide_carries_audio_playback_fields():
     s = MediaSection(
-        title="起立默祷",
+        title="媒体段落",
+        slide_title="起立默祷",
         body="请起立默祷\n静候音乐结束",
         audio_ref="media/prayer.wav",
         play_mode="loop",

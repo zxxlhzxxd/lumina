@@ -1,7 +1,7 @@
 import json
 
 from app.domain.project import Project
-from app.domain.sections import CoverSection, MediaSection
+from app.domain.sections import CoverSection, LiturgyTextSection, MediaSection
 from app.domain.style import (
     BlockLayout,
     EdgeInsets,
@@ -47,6 +47,47 @@ def test_legacy_media_caption_migrates_to_body():
     data = json.loads(project.model_dump_json())
     assert data["sections"][0]["body"] == "请起立默祷"
     assert "caption" not in data["sections"][0]
+
+
+def test_legacy_media_title_migrates_to_slide_title():
+    project = Project.model_validate(
+        {
+            "sections": [
+                {
+                    "type": "media",
+                    "title": "起立默祷",
+                    "body": "请起立默祷",
+                }
+            ]
+        }
+    )
+
+    section = project.sections[0]
+    assert isinstance(section, MediaSection)
+    assert section.title == "起立默祷"
+    assert section.slide_title == "起立默祷"
+
+    data = json.loads(project.model_dump_json())
+    assert data["sections"][0]["slide_title"] == "起立默祷"
+
+
+def test_legacy_liturgy_title_migrates_to_slide_title():
+    project = Project.model_validate(
+        {
+            "sections": [
+                {
+                    "type": "liturgy_text",
+                    "title": "使徒信经",
+                    "paragraphs": ["我信上帝"],
+                }
+            ]
+        }
+    )
+
+    section = project.sections[0]
+    assert isinstance(section, LiturgyTextSection)
+    assert section.title == "使徒信经"
+    assert section.slide_title == "使徒信经"
 
 
 def test_extended_font_style_fields_serialize_in_project():
