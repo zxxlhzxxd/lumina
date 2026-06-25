@@ -6,14 +6,16 @@ import {
   slideTextBoxes,
   textRunStyle,
 } from "../previewLayout";
-import type { SlideModel } from "../types";
+import type { SlideModel, SlideSize } from "../types";
 
 export function SlidePreview({
   slide,
+  slideSize,
   projectId,
   onClick,
 }: {
   slide: SlideModel;
+  slideSize: SlideSize;
   projectId?: string | null;
   onClick?: () => void;
 }) {
@@ -40,14 +42,16 @@ export function SlidePreview({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const update = () => setScale(computePreviewScale(el.clientWidth));
+    const update = () => setScale(computePreviewScale(el.clientWidth, slideSize));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [slideSize]);
 
-  const cardStyle: CSSProperties = {};
+  const cardStyle: CSSProperties = {
+    aspectRatio: slideSize === "4:3" ? "4 / 3" : "16 / 9",
+  };
   if (style?.background_color) cardStyle.background = style.background_color;
   if (bgUrl) {
     cardStyle.backgroundImage = `url("${bgUrl}")`;
@@ -55,7 +59,7 @@ export function SlidePreview({
     cardStyle.backgroundPosition = "center";
   }
 
-  const boxes = slideTextBoxes(slide);
+  const boxes = slideTextBoxes(slide, slideSize);
   const interactiveProps = onClick
     ? {
         role: "button",
@@ -87,7 +91,7 @@ export function SlidePreview({
             <div className="slide-card__text-line">
               <span
                 className="slide-card__text-run"
-                style={textRunStyle(style, box.role)}
+                style={textRunStyle(style, box.role, box.blockId)}
               >
                 {box.text}
               </span>

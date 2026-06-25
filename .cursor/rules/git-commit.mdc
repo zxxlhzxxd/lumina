@@ -1,0 +1,25 @@
+---
+description: Git commit message conventions
+alwaysApply: true
+---
+
+# Git Commit Messages
+
+- Write every commit message entirely in English (subject and body). No Chinese or other languages.
+- Never reveal agent, tool, or model identity in commit messages. Do not mention "Cursor", "AI", "agent", "assistant", "Claude", "GPT", "Copilot", or similar.
+- Never add agent attribution trailers such as `Co-authored-by:` referencing an AI/tool, or "Generated with ..." lines.
+- Keep messages factual and focused on the change and its intent.
+
+```
+# BAD
+修复了导出 PPTX 的分页问题
+
+# BAD
+fix: pagination bug
+
+🤖 Generated with Cursor
+Co-authored-by: Cursor <ai@cursor.com>
+
+# GOOD
+fix: correct scripture pagination when a verse exceeds page capacity
+```

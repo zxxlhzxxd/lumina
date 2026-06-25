@@ -2,7 +2,14 @@
  * Client-side style cascade (mirrors backend/app/services/styling.py).
  * Built-in default -> per-type default -> Section.style
  */
-import type { Section, SectionStyle, TextStyle } from "./types";
+import type {
+  BlockLayout,
+  EdgeInsets,
+  Section,
+  SectionStyle,
+  TextBlockStyle,
+  TextStyle,
+} from "./types";
 
 const CJK_FONT = "Microsoft YaHei";
 
@@ -58,6 +65,54 @@ function mergeText(
   return merged;
 }
 
+function mergeInsets(
+  base: EdgeInsets | null | undefined,
+  over: EdgeInsets | null | undefined
+): EdgeInsets | null {
+  if (!base) return over ? { ...over } : null;
+  if (!over) return { ...base };
+  const result = { ...base };
+  for (const side of ["top", "right", "bottom", "left"] as const) {
+    if (over[side] != null) result[side] = over[side];
+  }
+  return result;
+}
+
+function mergeBlock(
+  base: BlockLayout | null | undefined,
+  over: BlockLayout | null | undefined
+): BlockLayout | null {
+  if (!base) return over ? { ...over, margin: over.margin ? { ...over.margin } : null } : null;
+  if (!over) return { ...base, margin: base.margin ? { ...base.margin } : null };
+  return {
+    anchor: over.anchor ?? base.anchor,
+    margin: mergeInsets(base.margin, over.margin),
+  };
+}
+
+function mergeTextBlock(
+  base: TextBlockStyle | null | undefined,
+  over: TextBlockStyle | null | undefined
+): TextBlockStyle | null {
+  if (!base) {
+    if (!over) return null;
+    return {
+      text: mergeText(null, over.text),
+      layout: mergeBlock(null, over.layout),
+    };
+  }
+  if (!over) {
+    return {
+      text: mergeText(null, base.text),
+      layout: mergeBlock(null, base.layout),
+    };
+  }
+  return {
+    text: mergeText(base.text, over.text),
+    layout: mergeBlock(base.layout, over.layout),
+  };
+}
+
 function mergeStyle(
   base: SectionStyle | null | undefined,
   over: SectionStyle | null | undefined
@@ -72,6 +127,11 @@ function mergeStyle(
   result.body = mergeText(result.body, over.body);
   result.title = mergeText(result.title, over.title);
   result.label = mergeText(result.label, over.label);
+  const blocks = { ...(result.blocks ?? {}) };
+  for (const [key, value] of Object.entries(over.blocks ?? {})) {
+    blocks[key] = mergeTextBlock(blocks[key], value) as TextBlockStyle;
+  }
+  result.blocks = blocks;
   return result;
 }
 

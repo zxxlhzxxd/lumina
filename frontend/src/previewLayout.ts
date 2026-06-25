@@ -1,86 +1,142 @@
 /**
- * Preview layout constants aligned with backend/app/pptx/builder.py.
- * Positions are in inches on a 13.333" × 7.5" wide slide.
+ * Preview text block layout. Geometry mirrors backend/app/pptx/layout.py.
  */
 import type { CSSProperties } from "react";
-import type { SectionStyle, SlideModel, TextStyle } from "./types";
+import type {
+  BlockAnchor,
+  BlockLayout,
+  SectionStyle,
+  SlideModel,
+  SlideSize,
+  TextStyle,
+} from "./types";
 
-export const SLIDE_W_IN = 13.333;
 export const SLIDE_H_IN = 7.5;
-/** Full slide width in CSS pixels at 96dpi (matches PPTX 13.333" wide layout). */
-export const SLIDE_WIDTH_PX = SLIDE_W_IN * 96;
-/** Typical preview card width used when layout is not yet measured. */
+export const WIDE_SLIDE_W_IN = 13.333;
+export const STANDARD_SLIDE_W_IN = 10;
 export const TYPICAL_PREVIEW_WIDTH_PX = 320;
 export const DEFAULT_MARGIN_IN = 0.8;
 export const DEFAULT_FONT = "Microsoft YaHei";
-
 export const DEFAULT_TEXT_COLOR = "#F5F5F5";
 export const DEFAULT_ACCENT_COLOR = "#E0B34A";
 export const DEFAULT_MUTED_COLOR = "#9FB3C8";
 
+interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+interface BlockSpec {
+  blockId: string;
+  role: "title" | "body" | "label";
+  text: string;
+  rect: Rect;
+  defaultAnchor: BlockAnchor;
+  defaultPt: number;
+  defaultBold?: boolean;
+  defaultColor?: string;
+  defaultAlign?: "left" | "center" | "right";
+  vAlign?: "top" | "middle" | "bottom";
+}
+
 export interface TextBoxLayout {
+  blockId: string;
   leftPct: number;
   topPct: number;
   widthPct: number;
   heightPct: number;
   role: "title" | "body" | "label";
-  /** Builder default font size in pt when style has no override. */
   defaultPt: number;
   defaultBold?: boolean;
   defaultColor?: string;
   defaultAlign?: "left" | "center" | "right";
-  /** Vertical alignment within the box. */
   vAlign?: "top" | "middle" | "bottom";
 }
 
-function marginIn(style: SectionStyle | null | undefined): number {
-  const m = style?.margin;
-  if (typeof m === "number" && m > 0) return m;
-  return DEFAULT_MARGIN_IN;
+export function slideDimensions(slideSize: SlideSize): {
+  width: number;
+  height: number;
+} {
+  return {
+    width: slideSize === "4:3" ? STANDARD_SLIDE_W_IN : WIDE_SLIDE_W_IN,
+    height: SLIDE_H_IN,
+  };
 }
 
-function contentWidthPct(style: SectionStyle | null | undefined): number {
-  const mx = marginIn(style);
-  return ((SLIDE_W_IN - 2 * mx) / SLIDE_W_IN) * 100;
+function legacyMargin(style: SectionStyle | null | undefined): number {
+  const value = style?.margin;
+  return typeof value === "number" && value > 0 ? value : DEFAULT_MARGIN_IN;
 }
 
-function leftPct(style: SectionStyle | null | undefined): number {
-  return (marginIn(style) / SLIDE_W_IN) * 100;
+function blockOverride(
+  style: SectionStyle | null | undefined,
+  blockId: string
+): BlockLayout | null {
+  return style?.blocks?.[blockId]?.layout ?? null;
 }
 
-function inToTopPct(inches: number): number {
-  return (inches / SLIDE_H_IN) * 100;
+function fitMargins(start: number, end: number, total: number): [number, number] {
+  const safeStart = Math.max(0, start);
+  const safeEnd = Math.max(0, end);
+  const maximum = Math.max(0, total - 0.01);
+  const combined = safeStart + safeEnd;
+  if (combined <= maximum || combined === 0) return [safeStart, safeEnd];
+  const scale = maximum / combined;
+  return [safeStart * scale, safeEnd * scale];
 }
 
-function inToHeightPct(inches: number): number {
-  return (inches / SLIDE_H_IN) * 100;
-}
+export function resolveBlockRect(
+  base: Rect,
+  blockId: string,
+  defaultAnchor: BlockAnchor,
+  style: SectionStyle | null | undefined,
+  slideWidth: number,
+  slideHeight: number
+): Rect {
+  const override = blockOverride(style, blockId);
+  if (!override) return base;
 
-function inToWidthPct(inches: number): number {
-  return (inches / SLIDE_W_IN) * 100;
+  const fallback = legacyMargin(style);
+  let top = override.margin?.top ?? fallback;
+  let right = override.margin?.right ?? fallback;
+  let bottom = override.margin?.bottom ?? fallback;
+  let left = override.margin?.left ?? fallback;
+  [left, right] = fitMargins(left, right, slideWidth);
+  [top, bottom] = fitMargins(top, bottom, slideHeight);
+  const availableWidth = Math.max(0.01, slideWidth - left - right);
+  const availableHeight = Math.max(0.01, slideHeight - top - bottom);
+  const width = Math.min(base.width, availableWidth);
+  const height = Math.min(base.height, availableHeight);
+  const anchor = override.anchor ?? defaultAnchor;
+  const [vertical, horizontal] = anchor.split("_");
+
+  let resolvedLeft = left + (availableWidth - width) / 2;
+  if (horizontal === "left") resolvedLeft = left;
+  if (horizontal === "right") resolvedLeft = slideWidth - right - width;
+
+  let resolvedTop = top + (availableHeight - height) / 2;
+  if (vertical === "top") resolvedTop = top;
+  if (vertical === "bottom") resolvedTop = slideHeight - bottom - height;
+
+  return { left: resolvedLeft, top: resolvedTop, width, height };
 }
 
 /** scale = preview container width / full slide pixel width */
-export function computePreviewScale(measuredWidthPx: number): number {
-  if (measuredWidthPx <= 0) return TYPICAL_PREVIEW_WIDTH_PX / SLIDE_WIDTH_PX;
-  return measuredWidthPx / SLIDE_WIDTH_PX;
+export function computePreviewScale(
+  measuredWidthPx: number,
+  slideSize: SlideSize
+): number {
+  const widthPx = slideDimensions(slideSize).width * 96;
+  if (measuredWidthPx <= 0) return TYPICAL_PREVIEW_WIDTH_PX / widthPx;
+  return measuredWidthPx / widthPx;
 }
 
-/** Convert PowerPoint pt to CSS px at the given preview scale. */
 export function ptToPx(pt: number, scale: number): number {
   return pt * (96 / 72) * scale;
 }
 
-export /**
- * Map a configured font name to a cross-platform CSS font stack.
- *
- * The font picker exposes Windows-oriented Chinese fonts (e.g. "Microsoft YaHei",
- * "SimSun") that don't exist on macOS, while Latin fonts (Arial / Times New Roman)
- * carry no Chinese glyphs. Without fallbacks every choice silently collapses to the
- * same system Chinese font, so font changes appear to do nothing in the preview.
- * Each stack therefore includes equivalents available on macOS so switching fonts is
- * actually visible.
- */
 const FONT_STACKS: Record<string, string> = {
   "Microsoft YaHei": '"Microsoft YaHei", "PingFang SC", "Heiti SC", sans-serif',
   SimHei: '"SimHei", "Heiti SC", "STHeiti", sans-serif',
@@ -101,16 +157,18 @@ function cssFontFamily(name: string): string {
 function roleStyle(
   slideStyle: SectionStyle | null | undefined,
   role: "title" | "body" | "label",
+  blockId: string,
   defaults: {
     pt: number;
     bold?: boolean;
     color?: string;
     align?: "left" | "center" | "right";
-    font?: string;
   },
   scale: number
 ): CSSProperties {
-  const ts = (slideStyle?.[role] ?? {}) as TextStyle;
+  const roleText = (slideStyle?.[role] ?? {}) as TextStyle;
+  const blockText = slideStyle?.blocks?.[blockId]?.text ?? {};
+  const ts = { ...roleText, ...blockText } as TextStyle;
   const pt = ts.font_size ?? defaults.pt;
   const css: CSSProperties = {
     fontSize: ptToPx(pt, scale),
@@ -119,7 +177,7 @@ function roleStyle(
     textDecoration: ts.underline ? "underline" : "none",
     color: ts.color ?? defaults.color ?? DEFAULT_TEXT_COLOR,
     textAlign: ts.align ?? defaults.align ?? "center",
-    fontFamily: cssFontFamily(ts.font_family ?? defaults.font ?? DEFAULT_FONT),
+    fontFamily: cssFontFamily(ts.font_family ?? DEFAULT_FONT),
   };
   if (ts.line_spacing) css.lineHeight = ts.line_spacing;
   return css;
@@ -127,9 +185,13 @@ function roleStyle(
 
 export function textRunStyle(
   slideStyle: SectionStyle | null | undefined,
-  role: "title" | "body" | "label"
+  role: "title" | "body" | "label",
+  blockId: string
 ): CSSProperties {
-  const ts = (slideStyle?.[role] ?? {}) as TextStyle;
+  const ts = {
+    ...((slideStyle?.[role] ?? {}) as TextStyle),
+    ...(slideStyle?.blocks?.[blockId]?.text ?? {}),
+  };
   return ts.highlight_color ? { backgroundColor: ts.highlight_color } : {};
 }
 
@@ -148,171 +210,190 @@ export function boxStyle(
   slideStyle: SectionStyle | null | undefined,
   scale: number
 ): CSSProperties {
+  const verticalAlign =
+    slideStyle?.blocks?.[box.blockId]?.text?.vertical_align ?? box.vAlign;
   return {
     left: `${box.leftPct}%`,
     top: `${box.topPct}%`,
     width: `${box.widthPct}%`,
     height: `${box.heightPct}%`,
-    ...vAlignStyle(box.vAlign),
-    ...roleStyle(slideStyle, box.role, {
-      pt: box.defaultPt,
-      bold: box.defaultBold,
-      color: box.defaultColor,
-      align: box.defaultAlign,
-    }, scale),
+    ...vAlignStyle(verticalAlign),
+    ...roleStyle(
+      slideStyle,
+      box.role,
+      box.blockId,
+      {
+        pt: box.defaultPt,
+        bold: box.defaultBold,
+        color: box.defaultColor,
+        align: box.defaultAlign,
+      },
+      scale
+    ),
   };
 }
 
-/** Text boxes for a slide, mirroring PptxBuilder layout. */
-export function slideTextBoxes(slide: SlideModel): Array<TextBoxLayout & { text: string }> {
-  const style = slide.style ?? null;
-  const cw = contentWidthPct(style);
-  const left = leftPct(style);
-  const kind = slide.kind;
+function blockSpecs(
+  slide: SlideModel,
+  slideWidth: number,
+  slideHeight: number
+): BlockSpec[] {
+  const style = slide.style;
+  const margin = legacyMargin(style);
+  const contentWidth = Math.max(0.01, slideWidth - 2 * margin);
+  const blocks: BlockSpec[] = [];
 
-  if (kind === "cover" || kind === "scripture_title" || kind === "hymn_title") {
-    const boxes: Array<TextBoxLayout & { text: string }> = [
-      {
-        leftPct: left,
-        topPct: inToTopPct(2.4),
-        widthPct: cw,
-        heightPct: inToHeightPct(2.0),
-        role: "title",
-        defaultPt: 54,
-        defaultBold: true,
-        defaultAlign: "center",
-        vAlign: "middle",
-        text: slide.title || "（未填写标题）",
-      },
-    ];
+  if (["cover", "scripture_title", "hymn_title"].includes(slide.kind)) {
+    blocks.push({
+      blockId: "title",
+      role: "title",
+      text: slide.title || "（未填写标题）",
+      rect: { left: margin, top: 2.4, width: contentWidth, height: 2 },
+      defaultAnchor: "middle_center",
+      defaultPt: 54,
+      defaultBold: true,
+      defaultAlign: "center",
+      vAlign: "middle",
+    });
     if (slide.subtitle) {
-      boxes.push({
-        leftPct: left,
-        topPct: inToTopPct(4.5),
-        widthPct: cw,
-        heightPct: inToHeightPct(1.2),
+      blocks.push({
+        blockId: "subtitle",
         role: "body",
+        text: slide.subtitle,
+        rect: { left: margin, top: 4.5, width: contentWidth, height: 1.2 },
+        defaultAnchor: "bottom_center",
         defaultPt: 28,
         defaultColor: DEFAULT_MUTED_COLOR,
         defaultAlign: "center",
         vAlign: "middle",
-        text: slide.subtitle,
       });
     }
     if (slide.body) {
-      boxes.push({
-        leftPct: left,
-        topPct: inToTopPct(5.7),
-        widthPct: cw,
-        heightPct: inToHeightPct(1.0),
+      blocks.push({
+        blockId: "extra",
         role: "body",
+        text: slide.body,
+        rect: { left: margin, top: 5.7, width: contentWidth, height: 1 },
+        defaultAnchor: "bottom_center",
         defaultPt: 22,
         defaultColor: DEFAULT_MUTED_COLOR,
         defaultAlign: "center",
         vAlign: "middle",
-        text: slide.body,
       });
     }
-    return boxes;
+    return blocks;
   }
 
-  if (kind === "responsive_verse") {
-    const boxes: Array<TextBoxLayout & { text: string }> = [];
+  if (slide.kind === "responsive_verse") {
     if (slide.label) {
-      boxes.push({
-        leftPct: left,
-        topPct: inToTopPct(0.5),
-        widthPct: inToWidthPct(1.4),
-        heightPct: inToHeightPct(1.4),
+      blocks.push({
+        blockId: "label",
         role: "label",
+        text: slide.label,
+        rect: { left: margin, top: 0.5, width: 1.4, height: 1.4 },
+        defaultAnchor: "top_left",
         defaultPt: 44,
         defaultBold: true,
         defaultColor: DEFAULT_ACCENT_COLOR,
         defaultAlign: "left",
         vAlign: "top",
-        text: slide.label,
       });
     }
-    boxes.push({
-      leftPct: left,
-      topPct: inToTopPct(1.6),
-      widthPct: cw,
-      heightPct: inToHeightPct(4.6),
+    blocks.push({
+      blockId: "body",
       role: "body",
+      text: slide.body || "",
+      rect: { left: margin, top: 1.6, width: contentWidth, height: 4.6 },
+      defaultAnchor: "middle_center",
       defaultPt: 40,
       defaultBold: true,
       defaultAlign: "center",
       vAlign: "middle",
-      text: slide.body || "",
     });
     if (slide.reference) {
-      boxes.push({
-        leftPct: left,
-        topPct: inToTopPct(6.5),
-        widthPct: cw,
-        heightPct: inToHeightPct(0.7),
+      blocks.push({
+        blockId: "reference",
         role: "body",
+        text: slide.reference,
+        rect: { left: margin, top: 6.5, width: contentWidth, height: 0.7 },
+        defaultAnchor: "bottom_center",
         defaultPt: 20,
         defaultColor: DEFAULT_MUTED_COLOR,
         defaultAlign: "center",
         vAlign: "bottom",
-        text: slide.reference,
       });
     }
-    return boxes;
+    return blocks;
   }
 
-  // body / liturgy / hymn / announcement / etc.
-  const bodyDefaultPt = slide.section_type === "hymn" ? 40 : 32;
-  const bodyDefaultBold = slide.section_type === "hymn";
-  const boxes: Array<TextBoxLayout & { text: string }> = [];
-  let bodyTopIn = 0.8;
-
+  let bodyTop = 0.8;
   if (slide.title) {
-    boxes.push({
-      leftPct: left,
-      topPct: inToTopPct(0.6),
-      widthPct: cw,
-      heightPct: inToHeightPct(1.1),
+    blocks.push({
+      blockId: "title",
       role: "title",
+      text: slide.title,
+      rect: { left: margin, top: 0.6, width: contentWidth, height: 1.1 },
+      defaultAnchor: "top_center",
       defaultPt: 36,
       defaultBold: true,
       defaultColor: DEFAULT_ACCENT_COLOR,
       defaultAlign: "center",
       vAlign: "top",
-      text: slide.title,
     });
-    bodyTopIn = 1.9;
+    bodyTop = 1.9;
   }
-
-  const bodyHeightIn = SLIDE_H_IN - bodyTopIn - 0.9;
-  boxes.push({
-    leftPct: left,
-    topPct: inToTopPct(bodyTopIn),
-    widthPct: cw,
-    heightPct: inToHeightPct(bodyHeightIn),
+  blocks.push({
+    blockId: "body",
     role: "body",
-    defaultPt: bodyDefaultPt,
-    defaultBold: bodyDefaultBold,
+    text: slide.body || "",
+    rect: {
+      left: margin,
+      top: bodyTop,
+      width: contentWidth,
+      height: Math.max(0.01, slideHeight - bodyTop - 0.9),
+    },
+    defaultAnchor: "middle_center",
+    defaultPt: slide.section_type === "hymn" ? 40 : 32,
+    defaultBold: slide.section_type === "hymn",
     defaultAlign: "center",
     vAlign: "middle",
-    text: slide.body || "",
   });
-
   if (slide.reference) {
-    boxes.push({
-      leftPct: left,
-      topPct: inToTopPct(SLIDE_H_IN - 0.8),
-      widthPct: cw,
-      heightPct: inToHeightPct(0.6),
+    blocks.push({
+      blockId: "reference",
       role: "body",
+      text: slide.reference,
+      rect: { left: margin, top: slideHeight - 0.8, width: contentWidth, height: 0.6 },
+      defaultAnchor: "bottom_center",
       defaultPt: 18,
       defaultColor: DEFAULT_MUTED_COLOR,
       defaultAlign: "center",
       vAlign: "bottom",
-      text: slide.reference,
     });
   }
+  return blocks;
+}
 
-  return boxes;
+export function slideTextBoxes(
+  slide: SlideModel,
+  slideSize: SlideSize
+): Array<TextBoxLayout & { text: string }> {
+  const { width, height } = slideDimensions(slideSize);
+  return blockSpecs(slide, width, height).map((block) => {
+    const rect = resolveBlockRect(
+      block.rect,
+      block.blockId,
+      block.defaultAnchor,
+      slide.style,
+      width,
+      height
+    );
+    return {
+      ...block,
+      leftPct: (rect.left / width) * 100,
+      topPct: (rect.top / height) * 100,
+      widthPct: (rect.width / width) * 100,
+      heightPct: (rect.height / height) * 100,
+    };
+  });
 }

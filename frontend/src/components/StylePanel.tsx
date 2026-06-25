@@ -1,5 +1,11 @@
-import { Button, Form, InputNumber, Space } from "antd";
-import type { Section, SectionStyle, TextStyle } from "../types";
+import { Button, Form, Space } from "antd";
+import type {
+  Section,
+  SectionStyle,
+  SectionType,
+  TextBlockStyle,
+  TextStyle,
+} from "../types";
 import { FontEditor } from "./FontEditor";
 import { MediaPicker } from "./MediaPicker";
 
@@ -11,6 +17,46 @@ interface Props {
 }
 
 type TextRole = "body" | "title" | "label";
+type BlockId = "title" | "subtitle" | "body" | "label" | "reference" | "extra";
+
+const BLOCKS_BY_SECTION: Record<
+  SectionType,
+  Array<{ id: BlockId; role: TextRole; label: string }>
+> = {
+  cover: [
+    { id: "title", role: "title", label: "标题文字" },
+    { id: "subtitle", role: "body", label: "副标题文字" },
+    { id: "extra", role: "body", label: "附加信息文字" },
+  ],
+  responsive_reading: [
+    { id: "label", role: "label", label: "启/应标识" },
+    { id: "body", role: "body", label: "正文文字" },
+    { id: "reference", role: "body", label: "经文出处" },
+  ],
+  scripture: [
+    { id: "title", role: "title", label: "标题文字" },
+    { id: "subtitle", role: "body", label: "副标题文字" },
+    { id: "body", role: "body", label: "正文文字" },
+    { id: "reference", role: "body", label: "经文出处" },
+  ],
+  hymn: [
+    { id: "title", role: "title", label: "标题文字" },
+    { id: "subtitle", role: "body", label: "副标题文字" },
+    { id: "body", role: "body", label: "正文文字" },
+  ],
+  liturgy_text: [
+    { id: "title", role: "title", label: "标题文字" },
+    { id: "body", role: "body", label: "正文文字" },
+  ],
+  announcement: [
+    { id: "title", role: "title", label: "标题文字" },
+    { id: "body", role: "body", label: "正文文字" },
+  ],
+  media: [
+    { id: "title", role: "title", label: "标题文字" },
+    { id: "body", role: "body", label: "正文文字" },
+  ],
+};
 
 function ColorField({
   value,
@@ -60,21 +106,37 @@ export function StylePanel({
     onChange({ style: { ...style, ...partial } } as Partial<Section>);
   };
 
-  const patchText = (role: TextRole, partial: Partial<TextStyle>) => {
-    const current = (style[role] ?? {}) as TextStyle;
-    patchStyle({ [role]: { ...current, ...partial } } as Partial<SectionStyle>);
+  const patchBlock = (blockId: BlockId, partial: Partial<TextBlockStyle>) => {
+    const blocks = style.blocks ?? {};
+    const current = blocks[blockId] ?? {};
+    patchStyle({
+      blocks: {
+        ...blocks,
+        [blockId]: { ...current, ...partial },
+      },
+    });
   };
 
-  const textEditor = (role: TextRole, label: string) => {
-    const ts = (style[role] ?? {}) as TextStyle;
-    const effective = (effectiveStyle[role] ?? {}) as TextStyle;
+  const textEditor = (blockId: BlockId, role: TextRole, label: string) => {
+    const block = style.blocks?.[blockId] ?? {};
+    const effectiveBlock = effectiveStyle.blocks?.[blockId] ?? {};
+    const ts = block.text ?? {};
+    const effective = {
+      ...((effectiveStyle[role] ?? {}) as TextStyle),
+      ...(effectiveBlock.text ?? {}),
+    };
     return (
       <div className="style-workspace__text-role">
         <div className="style-workspace__role-label">{label}</div>
         <FontEditor
           value={ts}
           effectiveValue={effective}
-          onChange={(patch) => patchText(role, patch)}
+          layoutValue={block.layout}
+          fallbackMargin={effectiveStyle.margin ?? 0.8}
+          onChange={(patch) =>
+            patchBlock(blockId, { text: { ...ts, ...patch } })
+          }
+          onLayoutChange={(layout) => patchBlock(blockId, { layout })}
         />
       </div>
     );
@@ -98,19 +160,11 @@ export function StylePanel({
             onChange={(ref) => patchStyle({ background_image: ref })}
           />
         </Form.Item>
-        {textEditor("title", "标题文字")}
-        {textEditor("body", "正文文字")}
-        {section.type === "responsive_reading" && textEditor("label", "启/应标识")}
-        <Form.Item label="边距（英寸）">
-          <InputNumber
-            min={0}
-            max={3}
-            step={0.1}
-            value={style.margin ?? undefined}
-            onChange={(v) => patchStyle({ margin: v ?? null })}
-            style={{ width: 120 }}
-          />
-        </Form.Item>
+        {BLOCKS_BY_SECTION[section.type].map((block) => (
+          <div key={block.id}>
+            {textEditor(block.id, block.role, block.label)}
+          </div>
+        ))}
       </Form>
     </div>
   );
