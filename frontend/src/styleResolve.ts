@@ -2,7 +2,14 @@
  * Client-side style cascade (mirrors backend/app/services/styling.py).
  * Built-in default -> per-type default -> Section.style
  */
-import type { Section, SectionStyle, TextStyle } from "./types";
+import type {
+  BlockLayout,
+  EdgeInsets,
+  Section,
+  SectionStyle,
+  TextBlockStyle,
+  TextStyle,
+} from "./types";
 
 const CJK_FONT = "Microsoft YaHei";
 
@@ -42,11 +49,21 @@ const TYPE_STYLES: Record<string, SectionStyle> = {
   },
 };
 
-function mergeText(
+export function mergeTextStyle(
   base: TextStyle | null | undefined,
   over: TextStyle | null | undefined
 ): TextStyle | null {
-  if (!base) return over ? { ...over } : null;
+  if (!base) {
+    if (!over) return null;
+    const merged: TextStyle = {};
+    for (const key of Object.keys(over) as (keyof TextStyle)[]) {
+      const value = over[key];
+      if (value != null) {
+        (merged as Record<string, unknown>)[key] = value;
+      }
+    }
+    return Object.keys(merged).length ? merged : null;
+  }
   if (!over) return { ...base };
   const merged: TextStyle = { ...base };
   for (const key of Object.keys(over) as (keyof TextStyle)[]) {
@@ -56,6 +73,54 @@ function mergeText(
     }
   }
   return merged;
+}
+
+function mergeInsets(
+  base: EdgeInsets | null | undefined,
+  over: EdgeInsets | null | undefined
+): EdgeInsets | null {
+  if (!base) return over ? { ...over } : null;
+  if (!over) return { ...base };
+  const result = { ...base };
+  for (const side of ["top", "right", "bottom", "left"] as const) {
+    if (over[side] != null) result[side] = over[side];
+  }
+  return result;
+}
+
+function mergeBlock(
+  base: BlockLayout | null | undefined,
+  over: BlockLayout | null | undefined
+): BlockLayout | null {
+  if (!base) return over ? { ...over, margin: over.margin ? { ...over.margin } : null } : null;
+  if (!over) return { ...base, margin: base.margin ? { ...base.margin } : null };
+  return {
+    anchor: over.anchor ?? base.anchor,
+    margin: mergeInsets(base.margin, over.margin),
+  };
+}
+
+function mergeTextBlock(
+  base: TextBlockStyle | null | undefined,
+  over: TextBlockStyle | null | undefined
+): TextBlockStyle | null {
+  if (!base) {
+    if (!over) return null;
+    return {
+      text: mergeTextStyle(null, over.text),
+      layout: mergeBlock(null, over.layout),
+    };
+  }
+  if (!over) {
+    return {
+      text: mergeTextStyle(null, base.text),
+      layout: mergeBlock(null, base.layout),
+    };
+  }
+  return {
+    text: mergeTextStyle(base.text, over.text),
+    layout: mergeBlock(base.layout, over.layout),
+  };
 }
 
 function mergeStyle(
@@ -69,9 +134,14 @@ function mergeStyle(
   if (over.background_image != null) result.background_image = over.background_image;
   if (over.background_video != null) result.background_video = over.background_video;
   if (over.margin != null) result.margin = over.margin;
-  result.body = mergeText(result.body, over.body);
-  result.title = mergeText(result.title, over.title);
-  result.label = mergeText(result.label, over.label);
+  result.body = mergeTextStyle(result.body, over.body);
+  result.title = mergeTextStyle(result.title, over.title);
+  result.label = mergeTextStyle(result.label, over.label);
+  const blocks = { ...(result.blocks ?? {}) };
+  for (const [key, value] of Object.entries(over.blocks ?? {})) {
+    blocks[key] = mergeTextBlock(blocks[key], value) as TextBlockStyle;
+  }
+  result.blocks = blocks;
   return result;
 }
 

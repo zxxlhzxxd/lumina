@@ -26,14 +26,13 @@ from pptx.util import Emu, Inches, Pt
 
 from app.core.errors import ExportError
 from app.domain.enums import SlideSize
+from app.pptx.layout import slide_text_blocks
 from app.services import media_store
 from app.services.generation import SlideModel
 
 # Projection-friendly fallback palette (used when a style field is unset).
 BG_COLOR = RGBColor(0x0D, 0x1B, 0x2A)
 TEXT_COLOR = RGBColor(0xF5, 0xF5, 0xF5)
-ACCENT_COLOR = RGBColor(0xE0, 0xB3, 0x4A)
-MUTED_COLOR = RGBColor(0x9F, 0xB3, 0xC8)
 
 CJK_FONT = "Microsoft YaHei"
 
@@ -41,6 +40,12 @@ _ALIGN = {
     "left": PP_ALIGN.LEFT,
     "center": PP_ALIGN.CENTER,
     "right": PP_ALIGN.RIGHT,
+}
+
+_ANCHOR = {
+    "top": MSO_ANCHOR.TOP,
+    "middle": MSO_ANCHOR.MIDDLE,
+    "bottom": MSO_ANCHOR.BOTTOM,
 }
 
 _SIZE_EMU = {
@@ -82,10 +87,18 @@ def _hex_to_rgb(value: Optional[str]) -> Optional[RGBColor]:
         return None
 
 
-def _role(style: Optional[dict], role: str) -> dict:
+def _role(style: Optional[dict], role: str, block_id: str) -> dict:
     if not style:
         return {}
-    return style.get(role) or {}
+    resolved = dict(style.get(role) or {})
+    blocks = style.get("blocks")
+    if isinstance(blocks, dict):
+        block = blocks.get(block_id)
+        if isinstance(block, dict) and isinstance(block.get("text"), dict):
+            for key, value in block["text"].items():
+                if value is not None:
+                    resolved[key] = value
+    return resolved
 
 
 def _set_text_highlight(run, color: Optional[RGBColor]) -> None:
@@ -294,22 +307,13 @@ class PptxBuilder:
                 )
         return slide
 
-    def _margin(self, sm: SlideModel) -> Emu:
-        margin_in = (sm.style or {}).get("margin")
-        if isinstance(margin_in, (int, float)) and margin_in > 0:
-            return Inches(float(margin_in))
-        return Inches(0.8)
-
-    def _content_box(self, sm: SlideModel):
-        mx = self._margin(sm)
-        return mx, Emu(self.width - 2 * mx)
-
     def _add_text(
         self,
         slide,
         text: str,
         sm: SlideModel,
         role: str,
+        block_id: str,
         *,
         left: Emu,
         top: Emu,
@@ -322,7 +326,7 @@ class PptxBuilder:
         anchor: MSO_ANCHOR = MSO_ANCHOR.MIDDLE,
         line_spacing: float = 1.15,
     ):
-        ts = _role(sm.style, role)
+        ts = _role(sm.style, role, block_id)
         size = ts.get("font_size") or size
         bold = ts.get("bold") if ts.get("bold") is not None else bold
         italic = ts.get("italic") if ts.get("italic") is not None else False
@@ -332,6 +336,7 @@ class PptxBuilder:
         font = ts.get("font_family") or CJK_FONT
         align = _ALIGN.get(ts.get("align"), align)
         line_spacing = ts.get("line_spacing") or line_spacing
+        anchor = _ANCHOR.get(ts.get("vertical_align"), anchor)
 
         box = slide.shapes.add_textbox(left, top, width, height)
         tf = box.text_frame
@@ -366,81 +371,26 @@ class PptxBuilder:
             )
 
     def _render_slide(self, sm: SlideModel) -> None:
-        kind = sm.kind
-        if kind in ("cover", "scripture_title", "hymn_title"):
-            self._render_title(sm)
-        elif kind == "responsive_verse":
-            self._render_responsive(sm)
-        else:
-            self._render_body(sm)
-
-    def _render_title(self, sm: SlideModel) -> None:
         slide = self._new_slide(sm)
-        mx, content_w = self._content_box(sm)
-        self._add_text(
-            slide, sm.title or "", sm, "title",
-            left=mx, top=Inches(2.4), width=content_w, height=Inches(2.0),
-            size=54, bold=True,
-        )
-        if sm.subtitle:
+        slide_width = self.width / Inches(1)
+        slide_height = self.height / Inches(1)
+        for block in slide_text_blocks(sm, slide_width, slide_height):
+            rect = block.rect
             self._add_text(
-                slide, sm.subtitle, sm, "body",
-                left=mx, top=Inches(4.5), width=content_w, height=Inches(1.2),
-                size=28, color=MUTED_COLOR,
-            )
-        if sm.body:
-            self._add_text(
-                slide, sm.body, sm, "body",
-                left=mx, top=Inches(5.7), width=content_w, height=Inches(1.0),
-                size=22, color=MUTED_COLOR,
-            )
-
-    def _render_responsive(self, sm: SlideModel) -> None:
-        slide = self._new_slide(sm)
-        mx, content_w = self._content_box(sm)
-        if sm.label:
-            self._add_text(
-                slide, sm.label, sm, "label",
-                left=mx, top=Inches(0.5), width=Inches(1.4), height=Inches(1.4),
-                size=44, bold=True, color=ACCENT_COLOR,
-                align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP,
-            )
-        self._add_text(
-            slide, sm.body or "", sm, "body",
-            left=mx, top=Inches(1.6), width=content_w, height=Inches(4.6),
-            size=40, bold=True,
-        )
-        if sm.reference:
-            self._add_text(
-                slide, sm.reference, sm, "body",
-                left=mx, top=Inches(6.5), width=content_w, height=Inches(0.7),
-                size=20, color=MUTED_COLOR, anchor=MSO_ANCHOR.BOTTOM,
-            )
-
-    def _render_body(self, sm: SlideModel) -> None:
-        slide = self._new_slide(sm)
-        mx, content_w = self._content_box(sm)
-        top = Inches(0.8)
-        if sm.title:
-            self._add_text(
-                slide, sm.title, sm, "title",
-                left=mx, top=Inches(0.6), width=content_w, height=Inches(1.1),
-                size=36, bold=True, color=ACCENT_COLOR, anchor=MSO_ANCHOR.TOP,
-            )
-            top = Inches(1.9)
-        body_h = Emu(self.height - top - Inches(0.9))
-        size = 40 if sm.section_type == "hymn" else 32
-        self._add_text(
-            slide, sm.body or "", sm, "body",
-            left=mx, top=top, width=content_w, height=body_h,
-            size=size, bold=sm.section_type == "hymn",
-        )
-        if sm.reference:
-            self._add_text(
-                slide, sm.reference, sm, "body",
-                left=mx, top=Emu(self.height - Inches(0.8)),
-                width=content_w, height=Inches(0.6),
-                size=18, color=MUTED_COLOR, anchor=MSO_ANCHOR.BOTTOM,
+                slide,
+                block.text,
+                sm,
+                block.role,
+                block.block_id,
+                left=Inches(rect.left),
+                top=Inches(rect.top),
+                width=Inches(rect.width),
+                height=Inches(rect.height),
+                size=block.size,
+                bold=block.bold,
+                color=_hex_to_rgb(block.color) or TEXT_COLOR,
+                align=_ALIGN.get(block.align, PP_ALIGN.CENTER),
+                anchor=_ANCHOR.get(block.vertical_anchor, MSO_ANCHOR.MIDDLE),
             )
         self._embed_audio(slide, sm)
 

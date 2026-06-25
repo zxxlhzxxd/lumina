@@ -3,6 +3,7 @@ import {
   ColorPicker,
   Divider,
   InputNumber,
+  Popover,
   Select,
   Space,
   Tooltip,
@@ -16,14 +17,22 @@ import {
   ClearOutlined,
   FontColorsOutlined,
   ItalicOutlined,
+  LayoutOutlined,
   UnderlineOutlined,
+  VerticalAlignBottomOutlined,
+  VerticalAlignMiddleOutlined,
+  VerticalAlignTopOutlined,
 } from "@ant-design/icons";
-import type { TextStyle } from "../types";
+import type { BlockLayout, TextStyle } from "../types";
+import { BlockLayoutEditor } from "./BlockLayoutEditor";
 
 interface Props {
   value: TextStyle;
   effectiveValue: TextStyle;
+  layoutValue: BlockLayout | null | undefined;
+  fallbackMargin: number;
   onChange: (patch: Partial<TextStyle>) => void;
+  onLayoutChange: (layout: BlockLayout | null) => void;
 }
 
 const FONT_OPTIONS = [
@@ -45,6 +54,7 @@ const RESET_STYLE: Partial<TextStyle> = {
   underline: null,
   highlight_color: null,
   align: null,
+  vertical_align: null,
 };
 
 const EDITABLE_STYLE_KEYS: Array<keyof TextStyle> = [
@@ -56,10 +66,12 @@ const EDITABLE_STYLE_KEYS: Array<keyof TextStyle> = [
   "underline",
   "highlight_color",
   "align",
+  "vertical_align",
 ];
 
 type BooleanStyleKey = "bold" | "italic" | "underline";
 type Align = NonNullable<TextStyle["align"]>;
+type VerticalAlign = NonNullable<TextStyle["vertical_align"]>;
 
 function FormatButton({
   title,
@@ -127,7 +139,14 @@ function ColorButton({
   );
 }
 
-export function FontEditor({ value, effectiveValue, onChange }: Props) {
+export function FontEditor({
+  value,
+  effectiveValue,
+  layoutValue,
+  fallbackMargin,
+  onChange,
+  onLayoutChange,
+}: Props) {
   const toggle = (key: BooleanStyleKey) => {
     onChange({ [key]: effectiveValue[key] !== true } as Partial<TextStyle>);
   };
@@ -138,6 +157,7 @@ export function FontEditor({ value, effectiveValue, onChange }: Props) {
 
   const hasOverride = EDITABLE_STYLE_KEYS.some((key) => value[key] != null);
   const effectiveAlign = effectiveValue.align ?? "center";
+  const effectiveVerticalAlign = effectiveValue.vertical_align;
 
   return (
     <div className="font-editor">
@@ -225,6 +245,55 @@ export function FontEditor({ value, effectiveValue, onChange }: Props) {
             onClick={() => setAlign("right")}
           />
         </Space.Compact>
+
+        <Divider type="vertical" />
+
+        <Space.Compact>
+          <FormatButton
+            title="文字靠上"
+            active={effectiveVerticalAlign === "top"}
+            icon={<VerticalAlignTopOutlined />}
+            onClick={() => onChange({ vertical_align: "top" as VerticalAlign })}
+          />
+          <FormatButton
+            title="文字垂直居中"
+            active={effectiveVerticalAlign === "middle"}
+            icon={<VerticalAlignMiddleOutlined />}
+            onClick={() => onChange({ vertical_align: "middle" as VerticalAlign })}
+          />
+          <FormatButton
+            title="文字靠下"
+            active={effectiveVerticalAlign === "bottom"}
+            icon={<VerticalAlignBottomOutlined />}
+            onClick={() => onChange({ vertical_align: "bottom" as VerticalAlign })}
+          />
+        </Space.Compact>
+
+        <Divider type="vertical" />
+
+        <Popover
+          trigger="click"
+          placement="bottomRight"
+          arrow={false}
+          overlayClassName="block-layout-popover"
+          content={
+            <BlockLayoutEditor
+              value={layoutValue}
+              fallbackMargin={fallbackMargin}
+              onChange={onLayoutChange}
+            />
+          }
+        >
+          <Tooltip title="设置文字块布局">
+            <Button
+              type={layoutValue ? "primary" : "text"}
+              className="font-editor__icon-button"
+              icon={<LayoutOutlined />}
+              aria-label="设置文字块布局"
+              aria-pressed={Boolean(layoutValue)}
+            />
+          </Tooltip>
+        </Popover>
 
         <Divider type="vertical" />
 

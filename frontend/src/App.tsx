@@ -644,6 +644,7 @@ function Main() {
                           <SlidePreview
                             key={`${sl.section_id}-${sl.index}`}
                             slide={sl}
+                            slideSize={project.slide_size}
                             projectId={project.id}
                           />
                         ))}
@@ -664,6 +665,7 @@ function Main() {
                 <SlidePreview
                   key={`${sl.section_id}-${sl.index}`}
                   slide={sl}
+                  slideSize={project.slide_size}
                   projectId={project.id}
                   onClick={() => selectSectionFromPreview(sl.section_id)}
                 />
