@@ -12,11 +12,13 @@ export function SlidePreview({
   slide,
   slideSize,
   projectId,
+  highlightedBlockId,
   onClick,
 }: {
   slide: SlideModel;
   slideSize: SlideSize;
   projectId?: string | null;
+  highlightedBlockId?: string | null;
   onClick?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,7 +87,11 @@ export function SlidePreview({
         {boxes.map((box, i) => (
           <div
             key={i}
-            className="slide-card__text"
+            className={`slide-card__text${
+              box.blockId === highlightedBlockId
+                ? " slide-card__text--layout-highlight"
+                : ""
+            }`}
             style={boxStyle(box, style, scale)}
           >
             <div className="slide-card__text-line">

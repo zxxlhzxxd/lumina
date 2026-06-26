@@ -45,6 +45,7 @@ import { TemplateManager } from "./components/TemplateManager";
 
 type BackendState = "loading" | "ready" | "error";
 type Screen = "list" | "editor";
+type LayoutTarget = { sectionId: string; blockId: string };
 
 function Main() {
   const { message } = AntApp.useApp();
@@ -66,6 +67,8 @@ function Main() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activeLayoutTarget, setActiveLayoutTarget] =
+    useState<LayoutTarget | null>(null);
   const pendingNav = useRef<(() => void) | null>(null);
   const previewTimer = useRef<number | null>(null);
   const outlineItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -154,6 +157,32 @@ function Main() {
   const selectedDisplaySlides = useMemo(
     () => displaySlides.filter((s) => s.section_id === selectedId),
     [displaySlides, selectedId]
+  );
+
+  useEffect(() => {
+    if (
+      screen !== "editor" ||
+      !selectedId ||
+      activeLayoutTarget?.sectionId !== selectedId
+    ) {
+      setActiveLayoutTarget(null);
+    }
+  }, [activeLayoutTarget?.sectionId, screen, selectedId]);
+
+  const handleBlockLayoutOpenChange = useCallback(
+    (blockId: string, open: boolean) => {
+      if (!selectedId) return;
+      if (open) {
+        setActiveLayoutTarget({ sectionId: selectedId, blockId });
+        return;
+      }
+      setActiveLayoutTarget((current) =>
+        current?.sectionId === selectedId && current.blockId === blockId
+          ? null
+          : current
+      );
+    },
+    [selectedId]
   );
 
   const selectSectionFromPreview = useCallback(
@@ -686,6 +715,7 @@ function Main() {
                     projectId={project.id}
                     effectiveStyle={selectedEffectiveStyle}
                     onChange={(patch) => updateSection(selectedSection.id, patch)}
+                    onBlockLayoutOpenChange={handleBlockLayoutOpenChange}
                   />
                   {selectedDisplaySlides.length > 0 && (
                     <>
@@ -699,6 +729,11 @@ function Main() {
                             slide={sl}
                             slideSize={project.slide_size}
                             projectId={project.id}
+                            highlightedBlockId={
+                              activeLayoutTarget?.sectionId === sl.section_id
+                                ? activeLayoutTarget.blockId
+                                : null
+                            }
                           />
                         ))}
                       </div>

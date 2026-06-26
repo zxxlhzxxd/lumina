@@ -16,6 +16,7 @@ interface Props {
   projectId: string | null;
   effectiveStyle: SectionStyle;
   onChange: (patch: Partial<Section>) => void;
+  onBlockLayoutOpenChange?: (blockId: string, open: boolean) => void;
 }
 
 // blank-line separated blocks <-> string[]
@@ -28,7 +29,13 @@ const linesToText = (lines: string[]) => lines.join("\n");
 const textToLines = (text: string) =>
   text.split("\n").map((s) => s.trim()).filter(Boolean);
 
-export function SectionEditor({ section, projectId, effectiveStyle, onChange }: Props) {
+export function SectionEditor({
+  section,
+  projectId,
+  effectiveStyle,
+  onChange,
+  onBlockLayoutOpenChange,
+}: Props) {
   const patch = (p: Partial<Section>) => onChange(p);
   const [hymnLibOpen, setHymnLibOpen] = useState(false);
   const [liturgyLibOpen, setLiturgyLibOpen] = useState(false);
@@ -291,6 +298,7 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
           projectId={projectId}
           effectiveStyle={effectiveStyle}
           onChange={onChange}
+          onBlockLayoutOpenChange={onBlockLayoutOpenChange}
         />
       </div>
 

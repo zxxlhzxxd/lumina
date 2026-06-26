@@ -15,6 +15,7 @@ interface Props {
   projectId: string | null;
   effectiveStyle: SectionStyle;
   onChange: (patch: Partial<Section>) => void;
+  onBlockLayoutOpenChange?: (blockId: string, open: boolean) => void;
 }
 
 type TextRole = "body" | "title" | "label";
@@ -100,6 +101,7 @@ export function StylePanel({
   projectId,
   effectiveStyle,
   onChange,
+  onBlockLayoutOpenChange,
 }: Props) {
   const style: SectionStyle = section.style ?? {};
 
@@ -137,6 +139,7 @@ export function StylePanel({
             patchBlock(blockId, { text: { ...ts, ...patch } })
           }
           onLayoutChange={(layout) => patchBlock(blockId, { layout })}
+          onLayoutOpenChange={(open) => onBlockLayoutOpenChange?.(blockId, open)}
         />
       </div>
     );

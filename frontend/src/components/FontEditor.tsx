@@ -33,6 +33,7 @@ interface Props {
   fallbackMargin: number;
   onChange: (patch: Partial<TextStyle>) => void;
   onLayoutChange: (layout: BlockLayout | null) => void;
+  onLayoutOpenChange?: (open: boolean) => void;
 }
 
 const FONT_OPTIONS = [
@@ -146,6 +147,7 @@ export function FontEditor({
   fallbackMargin,
   onChange,
   onLayoutChange,
+  onLayoutOpenChange,
 }: Props) {
   const toggle = (key: BooleanStyleKey) => {
     onChange({ [key]: effectiveValue[key] !== true } as Partial<TextStyle>);
@@ -276,6 +278,7 @@ export function FontEditor({
           placement="bottomRight"
           arrow={false}
           overlayClassName="block-layout-popover"
+          onOpenChange={onLayoutOpenChange}
           content={
             <BlockLayoutEditor
               value={layoutValue}
