@@ -292,6 +292,16 @@ body {
   border-radius: 5px;
 }
 
+.block-layout-editor__anchor-grid--vertical {
+  grid-template-columns: repeat(3, 30px);
+  grid-template-rows: repeat(3, 30px);
+}
+
+.block-layout-editor__anchor-grid--vertical .block-layout-editor__anchor {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
 .block-layout-popover .ant-popover-inner {
   padding: 0;
   overflow: visible;

@@ -127,6 +127,10 @@ export function StylePanel({
     const effective =
       mergeTextStyle((effectiveStyle[role] ?? {}) as TextStyle, effectiveBlock.text) ??
       {};
+    const blockAnchorMode =
+      section.type === "responsive_reading" && blockId === "label"
+        ? "full"
+        : "vertical";
     return (
       <div className="style-workspace__text-role">
         <div className="style-workspace__role-label">{label}</div>
@@ -135,6 +139,7 @@ export function StylePanel({
           effectiveValue={effective}
           layoutValue={block.layout}
           fallbackMargin={effectiveStyle.margin ?? 0.8}
+          blockAnchorMode={blockAnchorMode}
           onChange={(patch) =>
             patchBlock(blockId, { text: { ...ts, ...patch } })
           }

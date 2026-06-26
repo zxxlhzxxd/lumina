@@ -24,13 +24,17 @@ import {
   VerticalAlignTopOutlined,
 } from "@ant-design/icons";
 import type { BlockLayout, TextStyle } from "../types";
-import { BlockLayoutEditor } from "./BlockLayoutEditor";
+import {
+  BlockLayoutEditor,
+  type BlockAnchorMode,
+} from "./BlockLayoutEditor";
 
 interface Props {
   value: TextStyle;
   effectiveValue: TextStyle;
   layoutValue: BlockLayout | null | undefined;
   fallbackMargin: number;
+  blockAnchorMode?: BlockAnchorMode;
   onChange: (patch: Partial<TextStyle>) => void;
   onLayoutChange: (layout: BlockLayout | null) => void;
   onLayoutOpenChange?: (open: boolean) => void;
@@ -145,6 +149,7 @@ export function FontEditor({
   effectiveValue,
   layoutValue,
   fallbackMargin,
+  blockAnchorMode,
   onChange,
   onLayoutChange,
   onLayoutOpenChange,
@@ -283,6 +288,7 @@ export function FontEditor({
             <BlockLayoutEditor
               value={layoutValue}
               fallbackMargin={fallbackMargin}
+              anchorMode={blockAnchorMode}
               onChange={onLayoutChange}
             />
           }
