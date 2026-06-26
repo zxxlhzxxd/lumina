@@ -3,6 +3,7 @@ from app.domain.bible import BibleReference, RangeRef, Verse, VerseRef
 from app.domain.project import Project
 from app.domain.sections import (
     CoverSection,
+    HymnSection,
     LiturgyTextSection,
     MediaSection,
     ResponsiveReadingSection,
@@ -63,6 +64,34 @@ def test_liturgy_pagination():
     assert len(slides) == 2
     assert slides[0].title == "使徒信经"
     assert slides[1].title is None
+
+
+def test_hymn_uses_blank_line_as_page_break():
+    s = HymnSection(
+        lyrics=["A\nB\n\nC\nD"],
+        lines_per_slide=99,
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB", "C\nD"]
+
+
+def test_hymn_keeps_extra_blank_lines_after_page_break():
+    s = HymnSection(
+        lyrics=["A\n\n\nB"],
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A", "\nB"]
+
+
+def test_hymn_trailing_page_break_does_not_add_blank_slide():
+    s = HymnSection(
+        lyrics=["A\nB\n"],
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
 
 
 def test_media_slide_carries_audio_playback_fields():

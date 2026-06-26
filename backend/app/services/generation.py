@@ -195,20 +195,34 @@ def _hymn_slides(s: HymnSection) -> List[SlideModel]:
             )
         )
         idx += 1
-    lines: List[str] = []
-    for block in s.lyrics:
-        for line in block.splitlines():
-            if line.strip():
-                lines.append(line)
-    per = max(1, s.lines_per_slide)
-    for i in range(0, len(lines), per):
+
+    pages: List[List[str]] = []
+    current: List[str] = []
+    previous_nonblank = False
+    for block_index, block in enumerate(s.lyrics):
+        if block_index > 0 and previous_nonblank:
+            pages.append(current)
+            current = []
+            previous_nonblank = False
+        for line in block.split("\n"):
+            if not line.strip() and previous_nonblank:
+                pages.append(current)
+                current = []
+                previous_nonblank = False
+                continue
+            current.append(line)
+            previous_nonblank = bool(line.strip())
+    if any(line.strip() for line in current):
+        pages.append(current)
+
+    for page in pages:
         slides.append(
             SlideModel(
                 kind="hymn_lyric",
                 section_id=s.id,
                 section_type=s.type.value,
                 index=idx,
-                body="\n".join(lines[i:i + per]),
+                body="\n".join(page),
             )
         )
         idx += 1

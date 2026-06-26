@@ -51,6 +51,13 @@ npm run build
 
 `npm run dev` starts Vite and Electron together. `npm run build` runs TypeScript checking with `tsc --noEmit` and builds the renderer.
 
+On this machine, do not use the system/Homebrew Node 21 for frontend commands; it fails before build due to a missing ICU dynamic library. Use the installed nvm Node 22 path explicitly when running frontend verification:
+
+```bash
+cd frontend
+env PATH=/Users/xinxinzhang/.nvm/versions/node/v22.0.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin npm run build
+```
+
 ## Coding Style & Naming Conventions
 
 Python uses 4-space indentation, type hints, Pydantic models, and snake_case for modules, functions, and fields. Keep backend business logic in services rather than API handlers.
