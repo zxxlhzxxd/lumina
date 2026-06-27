@@ -30,14 +30,14 @@ def stub_resolver(_raw: str):
 def test_responsive_alternates_roles():
     s = ResponsiveReadingSection(reference="以西结书4:1-3")
     slides = build_section_slides(s, stub_resolver)
-    assert [sl.label for sl in slides] == ["启", "应", "启"]
+    assert [sl.label for sl in slides] == ["启", "应", "合"]
     assert all(sl.kind == "responsive_verse" for sl in slides)
 
 
 def test_responsive_start_with_ying():
     s = ResponsiveReadingSection(reference="以西结书4:1-3", start_role="ying")
     slides = build_section_slides(s, stub_resolver)
-    assert [sl.label for sl in slides] == ["应", "启", "应"]
+    assert [sl.label for sl in slides] == ["应", "启", "合"]
 
 
 def test_scripture_title_and_pagination():

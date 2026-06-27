@@ -126,8 +126,8 @@ ipcMain.handle("dialog:pickMedia", async (_evt, kind) => {
 ipcMain.handle("dialog:exportTemplate", async (_evt, defaultName) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: "导出流程模板",
-    defaultPath: defaultName || "流程模板.lumina-template",
-    filters: [{ name: "Lumina 模板", extensions: ["lumina-template"] }],
+    defaultPath: defaultName || "流程模板.lumina",
+    filters: [{ name: "Lumina 模板", extensions: ["lumina", "lumina-template"] }],
   });
   return result.canceled ? null : result.filePath;
 });
@@ -136,7 +136,43 @@ ipcMain.handle("dialog:importTemplate", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "导入流程模板",
     properties: ["openFile"],
-    filters: [{ name: "Lumina 模板", extensions: ["lumina-template"] }],
+    filters: [{ name: "Lumina 模板", extensions: ["lumina", "lumina-template"] }],
+  });
+  return result.canceled || !result.filePaths.length ? null : result.filePaths[0];
+});
+
+ipcMain.handle("dialog:exportHymnLibrary", async (_evt, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "导出歌词库",
+    defaultPath: defaultName || "歌词库.lumina-hymn",
+    filters: [{ name: "Lumina 歌词库", extensions: ["lumina-hymn"] }],
+  });
+  return result.canceled ? null : result.filePath;
+});
+
+ipcMain.handle("dialog:importHymnLibrary", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "导入歌词库",
+    properties: ["openFile"],
+    filters: [{ name: "Lumina 歌词库", extensions: ["lumina-hymn"] }],
+  });
+  return result.canceled || !result.filePaths.length ? null : result.filePaths[0];
+});
+
+ipcMain.handle("dialog:exportLiturgyLibrary", async (_evt, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "导出礼文库",
+    defaultPath: defaultName || "礼文库.lumina-liturgy",
+    filters: [{ name: "Lumina 礼文库", extensions: ["lumina-liturgy"] }],
+  });
+  return result.canceled ? null : result.filePath;
+});
+
+ipcMain.handle("dialog:importLiturgyLibrary", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "导入礼文库",
+    properties: ["openFile"],
+    filters: [{ name: "Lumina 礼文库", extensions: ["lumina-liturgy"] }],
   });
   return result.canceled || !result.filePaths.length ? null : result.filePaths[0];
 });

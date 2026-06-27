@@ -182,7 +182,7 @@ export function SectionEditor({
 
           {section.type === "liturgy_text" && (
             <>
-              <Form.Item label="PPT 页面标题">
+              <Form.Item label="礼文标题">
                 <Input
                   value={section.slide_title}
                   onChange={(e) =>

@@ -33,7 +33,7 @@ def test_export_import_roundtrip_with_media(temp_data_dir, tmp_path):
     project, src_dir = _project_with_media(tmp_path)
     tpl = store.from_project(project, src_dir, name="可分享模板")
 
-    out = tmp_path / "share.lumina-template"
+    out = tmp_path / "share.lumina"
     store.export(tpl.id, out)
     assert out.exists()
 
@@ -99,7 +99,7 @@ def test_font_style_survives_template_copy_and_container_roundtrip(
     assert copied_style.underline is True
     assert copied_style.highlight_color == "#FFF200"
 
-    out = tmp_path / "font-style.lumina-template"
+    out = tmp_path / "font-style.lumina"
     store.export(copied.id, out)
     imported = store.import_(out)
     imported_style = imported.sections[0].style.title

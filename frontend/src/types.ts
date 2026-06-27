@@ -196,7 +196,6 @@ export interface Hymn {
   author: string;
   number: string;
   source: string;
-  builtin: boolean;
   sections: HymnLyricSection[];
 }
 
@@ -205,20 +204,17 @@ export interface HymnSummary {
   title: string;
   author: string;
   number: string;
-  builtin: boolean;
 }
 
 export interface LiturgyText {
   id: string;
   title: string;
-  builtin: boolean;
   paragraphs: string[];
 }
 
 export interface LiturgyTextSummary {
   id: string;
   title: string;
-  builtin: boolean;
   paragraph_count: number;
 }
 

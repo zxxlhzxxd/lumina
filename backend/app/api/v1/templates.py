@@ -107,7 +107,7 @@ def export_template(template_id: str, body: ExportTemplateBody) -> dict:
         out = Path(body.path)
     else:
         settings.ensure_dirs()
-        out = settings.exports_dir / f"{_safe_filename(template.name)}.lumina-template"
+        out = settings.exports_dir / f"{_safe_filename(template.name)}.lumina"
     saved = template_store.export(template_id, out)
     return ok({"path": str(saved)})
 
@@ -118,7 +118,7 @@ def export_template_download(template_id: str):
     if template is None:
         raise NotFoundError(f"流程模板不存在: {template_id}")
     settings.ensure_dirs()
-    out = settings.exports_dir / f"{_safe_filename(template.name)}.lumina-template"
+    out = settings.exports_dir / f"{_safe_filename(template.name)}.lumina"
     saved = template_store.export(template_id, out)
     return FileResponse(
         str(saved), media_type="application/zip", filename=saved.name

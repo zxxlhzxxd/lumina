@@ -2,7 +2,7 @@
 
 User templates live in `templates/<id>/` (template.json + media/) and can be
 created, edited, duplicated, saved from a project, and imported/exported as a
-`.lumina-template` zip container bundling all referenced media.
+`.lumina` zip container bundling all referenced media.
 """
 from __future__ import annotations
 

@@ -76,13 +76,14 @@ def _responsive_slides(s: ResponsiveReadingSection, resolve: PassageResolver) ->
         body = v.text
         if s.show_verse_number and not s.show_reference:
             body = f"{v.verse}. {v.text}"
+        label = "合" if i == len(verses) - 1 else _ROLE_LABEL[role]
         slides.append(
             SlideModel(
                 kind="responsive_verse",
                 section_id=s.id,
                 section_type=s.type.value,
                 index=i,
-                label=_ROLE_LABEL[role],
+                label=label,
                 reference=ref_line,
                 body=body,
             )

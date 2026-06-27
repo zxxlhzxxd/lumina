@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
-import { App as AntApp, Button, Input, Modal, Space, Tag, Tooltip } from "antd";
+import { App as AntApp, Button, Input, Modal, Space, Tooltip } from "antd";
 import {
   CopyOutlined,
   DeleteOutlined,
+  ExportOutlined,
+  ImportOutlined,
   PlusOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { api } from "../api";
+import {
+  api,
+  pickLiturgyLibraryExportPath,
+  pickLiturgyLibraryImportPath,
+} from "../api";
 import type { LiturgyText, LiturgyTextSummary } from "../types";
 
 const { TextArea } = Input;
@@ -24,7 +30,6 @@ interface Props {
 const emptyDraft = (): LiturgyText => ({
   id: "",
   title: "",
-  builtin: false,
   paragraphs: [],
 });
 
@@ -87,7 +92,7 @@ export function LiturgyLibraryModal({ open, onClose, onInsert }: Props) {
     try {
       const payload = buildPayload();
       const saved =
-        selectedId && !draft.builtin
+        selectedId
           ? await api.updateLiturgy(selectedId, payload)
           : await api.createLiturgy(payload);
       message.success("已保存");
@@ -129,6 +134,29 @@ export function LiturgyLibraryModal({ open, onClose, onInsert }: Props) {
     });
   };
 
+  const handleExportLibrary = async () => {
+    const path = await pickLiturgyLibraryExportPath("礼文库.lumina-liturgy");
+    if (!path) return;
+    try {
+      const res = await api.exportLiturgyLibrary(path);
+      message.success(`已导出 ${res.count} 篇礼文`);
+    } catch (e: any) {
+      message.error(e.message ?? "导出失败");
+    }
+  };
+
+  const handleImportLibrary = async () => {
+    const path = await pickLiturgyLibraryImportPath();
+    if (!path) return;
+    try {
+      const res = await api.importLiturgyLibrary(path);
+      await load(query);
+      message.success(`已导入 ${res.imported} 篇礼文`);
+    } catch (e: any) {
+      message.error(e.message ?? "导入失败");
+    }
+  };
+
   const handleInsert = async () => {
     try {
       const text = selectedId ? await api.getLiturgy(selectedId) : buildPayload();
@@ -148,8 +176,8 @@ export function LiturgyLibraryModal({ open, onClose, onInsert }: Props) {
         <Button key="close" onClick={onClose}>
           关闭
         </Button>,
-        <Button key="save" onClick={handleSave} disabled={draft.builtin}>
-          {selectedId && !draft.builtin ? "保存修改" : "保存为新礼文"}
+        <Button key="save" onClick={handleSave}>
+          {selectedId ? "保存修改" : "保存为新礼文"}
         </Button>,
         <Button key="insert" type="primary" onClick={handleInsert}>
           插入到段落
@@ -176,6 +204,22 @@ export function LiturgyLibraryModal({ open, onClose, onInsert }: Props) {
           >
             新建礼文
           </Button>
+          <Space.Compact style={{ width: "100%", marginBottom: 8 }}>
+            <Button
+              icon={<ImportOutlined />}
+              onClick={handleImportLibrary}
+              style={{ width: "50%" }}
+            >
+              导入
+            </Button>
+            <Button
+              icon={<ExportOutlined />}
+              onClick={handleExportLibrary}
+              style={{ width: "50%" }}
+            >
+              导出
+            </Button>
+          </Space.Compact>
           <div style={{ overflowY: "auto", flex: 1, border: "1px solid #303030", borderRadius: 6 }}>
             {list.map((t) => (
               <div
@@ -194,7 +238,6 @@ export function LiturgyLibraryModal({ open, onClose, onInsert }: Props) {
                 <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {t.title || "（未命名）"}
                 </span>
-                {t.builtin && <Tag color="blue">内置</Tag>}
                 <Tooltip title="复制">
                   <Button
                     size="small"
@@ -206,43 +249,34 @@ export function LiturgyLibraryModal({ open, onClose, onInsert }: Props) {
                     }}
                   />
                 </Tooltip>
-                {!t.builtin && (
-                  <Tooltip title="删除">
-                    <Button
-                      size="small"
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(t);
-                      }}
-                    />
-                  </Tooltip>
-                )}
+                <Tooltip title="删除">
+                  <Button
+                    size="small"
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(t);
+                    }}
+                  />
+                </Tooltip>
               </div>
             ))}
           </div>
         </div>
 
         <div style={{ flex: 1 }}>
-          {draft.builtin && (
-            <Tag color="blue" style={{ marginBottom: 8 }}>
-              内置礼文为只读，复制后可编辑
-            </Tag>
-          )}
           <Space direction="vertical" style={{ width: "100%" }} size={10}>
             <Input
               placeholder="礼文标题"
               value={draft.title}
-              disabled={draft.builtin}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             />
             <TextArea
               rows={14}
               placeholder="礼文内容（空行分隔段落）"
               value={bodyText}
-              disabled={draft.builtin}
               onChange={(e) => setBodyText(e.target.value)}
             />
           </Space>

@@ -25,6 +25,10 @@ declare global {
       ) => Promise<string | null>;
       exportTemplateDialog: (defaultName: string) => Promise<string | null>;
       importTemplateDialog: () => Promise<string | null>;
+      exportHymnLibraryDialog: (defaultName: string) => Promise<string | null>;
+      importHymnLibraryDialog: () => Promise<string | null>;
+      exportLiturgyLibraryDialog: (defaultName: string) => Promise<string | null>;
+      importLiturgyLibraryDialog: () => Promise<string | null>;
     };
   }
 }
@@ -166,6 +170,10 @@ export const api = {
   deleteHymn: (id: string) =>
     request<{ deleted: string }>("DELETE", `/hymns/${id}`),
   duplicateHymn: (id: string) => request<Hymn>("POST", `/hymns/${id}/duplicate`),
+  exportHymnLibrary: (path: string) =>
+    request<{ path: string; count: number }>("POST", "/hymns/export", { path }),
+  importHymnLibrary: (path: string) =>
+    request<{ imported: number; items: Hymn[] }>("POST", "/hymns/import", { path }),
 
   // ---- liturgy library ----
   listLiturgy: (query = "") =>
@@ -182,6 +190,16 @@ export const api = {
     request<{ deleted: string }>("DELETE", `/liturgy-texts/${id}`),
   duplicateLiturgy: (id: string) =>
     request<LiturgyText>("POST", `/liturgy-texts/${id}/duplicate`),
+  exportLiturgyLibrary: (path: string) =>
+    request<{ path: string; count: number }>("POST", "/liturgy-texts/export", {
+      path,
+    }),
+  importLiturgyLibrary: (path: string) =>
+    request<{ imported: number; items: LiturgyText[] }>(
+      "POST",
+      "/liturgy-texts/import",
+      { path }
+    ),
 
   // ---- service templates ----
   getTemplate: (id: string) => request<any>("GET", `/service-templates/${id}`),
@@ -241,6 +259,38 @@ export async function pickTemplateExportPath(
 export async function pickTemplateImportPath(): Promise<string | null> {
   if (window.lumina?.importTemplateDialog) {
     return window.lumina.importTemplateDialog();
+  }
+  return null;
+}
+
+export async function pickHymnLibraryExportPath(
+  defaultName: string
+): Promise<string | null> {
+  if (window.lumina?.exportHymnLibraryDialog) {
+    return window.lumina.exportHymnLibraryDialog(defaultName);
+  }
+  return null;
+}
+
+export async function pickHymnLibraryImportPath(): Promise<string | null> {
+  if (window.lumina?.importHymnLibraryDialog) {
+    return window.lumina.importHymnLibraryDialog();
+  }
+  return null;
+}
+
+export async function pickLiturgyLibraryExportPath(
+  defaultName: string
+): Promise<string | null> {
+  if (window.lumina?.exportLiturgyLibraryDialog) {
+    return window.lumina.exportLiturgyLibraryDialog(defaultName);
+  }
+  return null;
+}
+
+export async function pickLiturgyLibraryImportPath(): Promise<string | null> {
+  if (window.lumina?.importLiturgyLibraryDialog) {
+    return window.lumina.importLiturgyLibraryDialog();
   }
   return null;
 }

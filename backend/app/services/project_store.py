@@ -16,8 +16,12 @@ from uuid import uuid4
 
 from app.core.config import settings
 from app.core.errors import NotFoundError
+from app.domain.library import Hymn, HymnLyricSection, LiturgyText
 from app.domain.project import Project
+from app.domain.sections import HymnSection, LiturgyTextSection
 from app.services import container, media_store
+from app.services.hymn_store import hymn_store
+from app.services.liturgy_store import liturgy_store
 from app.services.template_store import template_store
 
 logger = logging.getLogger(__name__)
@@ -125,10 +129,36 @@ class ProjectStore:
         if project_id not in self._projects:
             raise NotFoundError(f"工程不存在: {project_id}")
         project.id = project_id
+        self._sync_content_libraries(project)
         project.updated_at = _now()
         self._projects[project_id] = project
         self.write_file(project)
         return project
+
+    def _sync_content_libraries(self, project: Project) -> None:
+        for section in project.sections:
+            if isinstance(section, HymnSection):
+                title = section.song_title.strip()
+                if not title:
+                    continue
+                hymn = Hymn(
+                    title=title,
+                    author=section.author,
+                    number=section.hymn_number,
+                    sections=[
+                        HymnLyricSection(order=i, text=text)
+                        for i, text in enumerate(section.lyrics)
+                    ],
+                )
+                saved = hymn_store.upsert_by_title(hymn)
+                section.hymn_id = saved.id
+            elif isinstance(section, LiturgyTextSection):
+                title = section.slide_title.strip()
+                if not title:
+                    continue
+                text = LiturgyText(title=title, paragraphs=section.paragraphs)
+                saved = liturgy_store.upsert_by_title(text)
+                section.liturgy_id = saved.id
 
     def delete(self, project_id: str) -> None:
         if project_id not in self._projects:
