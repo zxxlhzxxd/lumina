@@ -9,6 +9,7 @@ import type {
   SlideModel,
   SlideSize,
   TextStyle,
+  RichTextRun,
 } from "./types";
 import { mergeTextStyle } from "./styleResolve";
 
@@ -33,6 +34,7 @@ interface BlockSpec {
   blockId: string;
   role: "title" | "body" | "label";
   text: string;
+  richText?: RichTextRun[][];
   rect: Rect;
   defaultAnchor: BlockAnchor;
   defaultPt: number;
@@ -49,6 +51,7 @@ export interface TextBoxLayout {
   widthPct: number;
   heightPct: number;
   role: "title" | "body" | "label";
+  richText?: RichTextRun[][];
   defaultPt: number;
   defaultBold?: boolean;
   defaultColor?: string;
@@ -348,6 +351,7 @@ function blockSpecs(
     blockId: "body",
     role: "body",
     text: slide.body || "",
+    richText: slide.rich_body ?? undefined,
     rect: {
       left: margin,
       top: bodyTop,

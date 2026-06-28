@@ -104,6 +104,7 @@ export interface ScriptureSection extends SectionBase {
   reference: string;
   show_verse_number: boolean;
   include_title_slide: boolean;
+  verse_layout: "paragraph" | "line_per_verse";
   pagination_mode: "auto" | "manual";
   chars_per_slide: number;
 }
@@ -239,10 +240,16 @@ export interface SlideModel {
   label: string | null;
   reference: string | null;
   body: string | null;
+  rich_body?: RichTextRun[][] | null;
   audio_ref?: string | null;
   play_mode?: PlayMode | null;
   audio_trigger?: AudioTrigger | null;
   style?: SectionStyle | null;
+}
+
+export interface RichTextRun {
+  text: string;
+  superscript?: boolean;
 }
 
 export interface ValidationIssue {

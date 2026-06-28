@@ -46,6 +46,7 @@ class ScriptureSection(SectionBase):
     reference: str = ""
     show_verse_number: bool = True
     include_title_slide: bool = True
+    verse_layout: Literal["paragraph", "line_per_verse"] = "paragraph"
     # 'auto' = paginate by capacity, 'manual' = use explicit page breaks (phase 2)
     pagination_mode: Literal["auto", "manual"] = "auto"
     chars_per_slide: int = 140  # capacity hint for auto pagination

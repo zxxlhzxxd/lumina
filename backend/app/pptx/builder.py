@@ -35,6 +35,8 @@ BG_COLOR = RGBColor(0x0D, 0x1B, 0x2A)
 TEXT_COLOR = RGBColor(0xF5, 0xF5, 0xF5)
 
 CJK_FONT = "Microsoft YaHei"
+SUPERSCRIPT_SIZE_SCALE = 0.6
+SUPERSCRIPT_BASELINE = "55000"
 
 _ALIGN = {
     "left": PP_ALIGN.LEFT,
@@ -137,8 +139,9 @@ def _set_font(
     color: RGBColor,
     highlight_color: Optional[RGBColor],
     font: str,
+    superscript: bool = False,
 ) -> None:
-    run.font.size = Pt(size)
+    run.font.size = Pt(size * SUPERSCRIPT_SIZE_SCALE if superscript else size)
     run.font.bold = bold
     run.font.italic = italic
     run.font.underline = underline
@@ -146,6 +149,8 @@ def _set_font(
     run.font.name = font
     _set_text_highlight(run, highlight_color)
     rpr = run._r.get_or_add_rPr()
+    if superscript:
+        rpr.set("baseline", SUPERSCRIPT_BASELINE)
     for tag in ("a:ea", "a:cs"):
         el = rpr.find(qn(tag))
         if el is None:
@@ -325,6 +330,7 @@ class PptxBuilder:
         align: PP_ALIGN = PP_ALIGN.CENTER,
         anchor: MSO_ANCHOR = MSO_ANCHOR.MIDDLE,
         line_spacing: float = 1.15,
+        rich_text: Optional[list[list[dict]]] = None,
     ):
         ts = _role(sm.style, role, block_id)
         size = ts.get("font_size") or size
@@ -342,23 +348,28 @@ class PptxBuilder:
         tf = box.text_frame
         tf.word_wrap = True
         tf.vertical_anchor = anchor
-        lines = text.split("\n") if text else [""]
-        for i, line in enumerate(lines):
+        if rich_text:
+            lines = rich_text
+        else:
+            lines = [[{"text": line}] for line in text.split("\n")] if text else [[{"text": ""}]]
+        for i, line_runs in enumerate(lines):
             para = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             para.alignment = align
             para.line_spacing = line_spacing
-            run = para.add_run()
-            run.text = line
-            _set_font(
-                run,
-                size=size,
-                bold=bool(bold),
-                italic=bool(italic),
-                underline=bool(underline),
-                color=color,
-                highlight_color=highlight_color,
-                font=font,
-            )
+            for item in line_runs:
+                run = para.add_run()
+                run.text = str(item.get("text", ""))
+                _set_font(
+                    run,
+                    size=size,
+                    bold=bool(bold),
+                    italic=bool(italic),
+                    underline=bool(underline),
+                    color=color,
+                    highlight_color=highlight_color,
+                    font=font,
+                    superscript=bool(item.get("superscript")),
+                )
         return box
 
     # ---- rendering -------------------------------------------------------
@@ -391,6 +402,7 @@ class PptxBuilder:
                 color=_hex_to_rgb(block.color) or TEXT_COLOR,
                 align=_ALIGN.get(block.align, PP_ALIGN.CENTER),
                 anchor=_ANCHOR.get(block.vertical_anchor, MSO_ANCHOR.MIDDLE),
+                rich_text=block.rich_text,
             )
         self._embed_audio(slide, sm)
 

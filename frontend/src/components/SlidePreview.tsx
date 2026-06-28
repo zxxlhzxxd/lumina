@@ -94,14 +94,32 @@ export function SlidePreview({
             }`}
             style={boxStyle(box, style, scale)}
           >
-            <div className="slide-card__text-line">
-              <span
-                className="slide-card__text-run"
-                style={textRunStyle(style, box.role, box.blockId)}
-              >
-                {box.text}
-              </span>
-            </div>
+            {box.richText ? (
+              box.richText.map((line, lineIndex) => (
+                <div className="slide-card__text-line" key={lineIndex}>
+                  {line.map((run, runIndex) => (
+                    <span
+                      className={`slide-card__text-run${
+                        run.superscript ? " slide-card__text-run--superscript" : ""
+                      }`}
+                      style={textRunStyle(style, box.role, box.blockId)}
+                      key={`${lineIndex}-${runIndex}`}
+                    >
+                      {run.text}
+                    </span>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div className="slide-card__text-line">
+                <span
+                  className="slide-card__text-run"
+                  style={textRunStyle(style, box.role, box.blockId)}
+                >
+                  {box.text}
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>

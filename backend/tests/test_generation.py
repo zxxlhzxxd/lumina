@@ -48,6 +48,56 @@ def test_scripture_title_and_pagination():
     assert any(sl.kind == "scripture" for sl in slides)
 
 
+def test_scripture_defaults_to_paragraph_layout():
+    s = ScriptureSection(
+        reference="以西结书4:1-3",
+        chars_per_slide=200,
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s, stub_resolver)
+    assert [sl.body for sl in slides] == ["1 第1节经文内容 2 第2节经文内容 3 第3节经文内容"]
+    assert slides[0].rich_body == [
+        [
+            {"text": "1", "superscript": True},
+            {"text": " 第1节经文内容"},
+            {"text": " "},
+            {"text": "2", "superscript": True},
+            {"text": " 第2节经文内容"},
+            {"text": " "},
+            {"text": "3", "superscript": True},
+            {"text": " 第3节经文内容"},
+        ]
+    ]
+
+
+def test_scripture_line_per_verse_layout():
+    s = ScriptureSection(
+        reference="以西结书4:1-3",
+        chars_per_slide=200,
+        include_title_slide=False,
+        verse_layout="line_per_verse",
+    )
+    slides = build_section_slides(s, stub_resolver)
+    assert [sl.body for sl in slides] == ["1 第1节经文内容\n2 第2节经文内容\n3 第3节经文内容"]
+    assert slides[0].rich_body == [
+        [{"text": "1", "superscript": True}, {"text": " 第1节经文内容"}],
+        [{"text": "2", "superscript": True}, {"text": " 第2节经文内容"}],
+        [{"text": "3", "superscript": True}, {"text": " 第3节经文内容"}],
+    ]
+
+
+def test_scripture_paragraph_without_verse_numbers():
+    s = ScriptureSection(
+        reference="以西结书4:1-3",
+        chars_per_slide=200,
+        include_title_slide=False,
+        show_verse_number=False,
+    )
+    slides = build_section_slides(s, stub_resolver)
+    assert [sl.body for sl in slides] == ["第1节经文内容第2节经文内容第3节经文内容"]
+    assert slides[0].rich_body is None
+
+
 def test_cover_single_slide():
     s = CoverSection(main_title="主日崇拜", sub_title="2026")
     slides = build_section_slides(s)

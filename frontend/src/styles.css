@@ -338,6 +338,12 @@ body {
   -webkit-box-decoration-break: clone;
 }
 
+.slide-card__text-run--superscript {
+  font-size: 60%;
+  vertical-align: super;
+  line-height: 0;
+}
+
 .style-workspace {
   margin-top: 20px;
   padding: 16px 18px;

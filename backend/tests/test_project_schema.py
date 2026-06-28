@@ -2,7 +2,7 @@ import json
 
 from app.domain.project import Project
 from app.domain.media import MediaAsset
-from app.domain.sections import CoverSection, LiturgyTextSection, MediaSection
+from app.domain.sections import CoverSection, LiturgyTextSection, MediaSection, ScriptureSection
 from app.domain.style import (
     BlockLayout,
     EdgeInsets,
@@ -70,6 +70,27 @@ def test_legacy_media_title_migrates_to_slide_title():
 
     data = json.loads(project.model_dump_json())
     assert data["sections"][0]["slide_title"] == "起立默祷"
+
+
+def test_legacy_scripture_defaults_to_paragraph_layout():
+    project = Project.model_validate(
+        {
+            "sections": [
+                {
+                    "type": "scripture",
+                    "reference": "以西结书4:1-3",
+                    "show_verse_number": True,
+                    "include_title_slide": True,
+                    "pagination_mode": "auto",
+                    "chars_per_slide": 140,
+                }
+            ]
+        }
+    )
+
+    section = project.sections[0]
+    assert isinstance(section, ScriptureSection)
+    assert section.verse_layout == "paragraph"
 
 
 def test_legacy_media_refs_migrate_to_media_assets():

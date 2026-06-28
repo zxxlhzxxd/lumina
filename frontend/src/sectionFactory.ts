@@ -31,6 +31,7 @@ export function makeSection(type: SectionType): Section {
         reference: "",
         show_verse_number: true,
         include_title_slide: true,
+        verse_layout: "paragraph",
         pagination_mode: "auto",
         chars_per_slide: 140,
       };

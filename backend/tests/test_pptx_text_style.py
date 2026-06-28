@@ -45,3 +45,32 @@ def test_pptx_exports_italic_underline_color_and_highlight(tmp_path):
     with zipfile.ZipFile(out) as archive:
         slide_xml = archive.read("ppt/slides/slide1.xml").decode("utf-8")
     assert '<a:highlight><a:srgbClr val="FFF200"/></a:highlight>' in slide_xml
+
+
+def test_pptx_exports_scripture_verse_numbers_as_superscript_runs(tmp_path):
+    out = tmp_path / "scripture-superscript.pptx"
+    build_pptx(
+        [
+            SlideModel(
+                kind="scripture",
+                section_id="s1",
+                section_type="scripture",
+                body="1 起初神创造天地 2 地是空虚混沌",
+                rich_body=[
+                    [
+                        {"text": "1", "superscript": True},
+                        {"text": " 起初神创造天地"},
+                        {"text": " "},
+                        {"text": "2", "superscript": True},
+                        {"text": " 地是空虚混沌"},
+                    ]
+                ],
+                style={"body": {"font_size": 32}},
+            )
+        ],
+        out,
+    )
+
+    with zipfile.ZipFile(out) as archive:
+        slide_xml = archive.read("ppt/slides/slide1.xml").decode("utf-8")
+    assert slide_xml.count('baseline="55000"') == 2

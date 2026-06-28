@@ -179,6 +179,20 @@ export function SectionEditor({
                   onChange={(v) => patch({ show_verse_number: v } as Partial<Section>)}
                 />
               </Form.Item>
+              <Form.Item label="经文排列">
+                <Segmented
+                  value={section.verse_layout}
+                  options={[
+                    { label: "段落", value: "paragraph" },
+                    { label: "每节一行", value: "line_per_verse" },
+                  ]}
+                  onChange={(v) =>
+                    patch({
+                      verse_layout: v as "paragraph" | "line_per_verse",
+                    } as Partial<Section>)
+                  }
+                />
+              </Form.Item>
               <Form.Item label="每页字数（约）">
                 <InputNumber
                   min={40}

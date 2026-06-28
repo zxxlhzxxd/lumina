@@ -40,6 +40,7 @@ class SlideModel(BaseModel):
     label: Optional[str] = None  # 启 / 应
     reference: Optional[str] = None
     body: Optional[str] = None
+    rich_body: Optional[List[List[dict]]] = None
     audio_ref: Optional[str] = None
     play_mode: Optional[str] = None
     audio_trigger: Optional[str] = None
@@ -92,25 +93,34 @@ def _responsive_slides(s: ResponsiveReadingSection, resolve: PassageResolver) ->
     return slides
 
 
-def _paginate(units: List[str], capacity: int) -> List[str]:
+def _paginate_units(units: List[str], capacity: int) -> List[List[str]]:
     """Pack whole text units into pages without exceeding `capacity` chars.
 
     A unit larger than capacity gets its own page (overflow allowed).
     """
-    pages: List[str] = []
+    pages: List[List[str]] = []
     current: List[str] = []
     current_len = 0
     for unit in units:
         unit_len = len(unit)
         if current and current_len + unit_len > capacity:
-            pages.append("\n".join(current))
+            pages.append(current)
             current = []
             current_len = 0
         current.append(unit)
         current_len += unit_len
     if current:
-        pages.append("\n".join(current))
+        pages.append(current)
     return pages
+
+
+def _join_rich_units(units: List[List[dict]], separator: str) -> List[dict]:
+    runs: List[dict] = []
+    for i, unit in enumerate(units):
+        if i > 0 and separator:
+            runs.append({"text": separator})
+        runs.extend(unit)
+    return runs
 
 
 def _scripture_slides(s: ScriptureSection, resolve: PassageResolver) -> List[SlideModel]:
@@ -133,10 +143,32 @@ def _scripture_slides(s: ScriptureSection, resolve: PassageResolver) -> List[Sli
         idx += 1
 
     units = []
+    rich_units = []
     for v in verses:
         units.append(f"{v.verse} {v.text}" if s.show_verse_number else v.text)
+        if s.show_verse_number:
+            rich_units.append(
+                [
+                    {"text": str(v.verse), "superscript": True},
+                    {"text": f" {v.text}"},
+                ]
+            )
     capacity = max(20, s.chars_per_slide)
-    for page in _paginate(units, capacity):
+    if s.verse_layout == "line_per_verse":
+        separator = "\n"
+    else:
+        separator = " " if s.show_verse_number else ""
+    cursor = 0
+    for page_units in _paginate_units(units, capacity):
+        rich_body = None
+        if s.show_verse_number:
+            page_rich_units = rich_units[cursor : cursor + len(page_units)]
+            rich_body = (
+                page_rich_units
+                if s.verse_layout == "line_per_verse"
+                else [_join_rich_units(page_rich_units, separator)]
+            )
+        cursor += len(page_units)
         slides.append(
             SlideModel(
                 kind="scripture",
@@ -144,7 +176,8 @@ def _scripture_slides(s: ScriptureSection, resolve: PassageResolver) -> List[Sli
                 section_type=s.type.value,
                 index=idx,
                 reference=ref.display,
-                body=page,
+                body=separator.join(page_units),
+                rich_body=rich_body,
             )
         )
         idx += 1
