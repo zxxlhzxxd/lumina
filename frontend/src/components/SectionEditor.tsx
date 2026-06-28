@@ -161,6 +161,13 @@ export function SectionEditor({
 
           {section.type === "scripture" && (
             <>
+              <Form.Item label="经文标题">
+                <Input
+                  value={section.title}
+                  onChange={(e) => patch({ title: e.target.value } as Partial<Section>)}
+                  placeholder="如：证道经文"
+                />
+              </Form.Item>
               <Form.Item label="经文引用" extra="选择书卷与起止章节（可跨章），按容量自动分页">
                 <ReferencePicker
                   value={section.reference}

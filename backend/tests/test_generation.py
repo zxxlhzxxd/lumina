@@ -42,10 +42,17 @@ def test_responsive_start_with_ying():
 
 
 def test_scripture_title_and_pagination():
-    s = ScriptureSection(reference="以西结书4:1-3", chars_per_slide=20)
+    s = ScriptureSection(title="证道经文", reference="以西结书4:1-3", chars_per_slide=20)
     slides = build_section_slides(s, stub_resolver)
     assert slides[0].kind == "scripture_title"
+    assert slides[0].title == "证道经文"
     assert any(sl.kind == "scripture" for sl in slides)
+
+
+def test_scripture_title_falls_back_to_book_name():
+    s = ScriptureSection(title="", reference="以西结书4:1-3")
+    slides = build_section_slides(s, stub_resolver)
+    assert slides[0].title == "以西结书"
 
 
 def test_scripture_defaults_to_paragraph_layout():
