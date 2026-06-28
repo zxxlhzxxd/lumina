@@ -12,8 +12,9 @@ import {
 import type { BlockAnchor, BlockLayout } from "../types";
 
 type MarginSide = "top" | "right" | "bottom" | "left";
+export type BlockAnchorMode = "full" | "vertical";
 
-const ANCHORS: Array<{
+const FULL_ANCHORS: Array<{
   value: BlockAnchor;
   label: string;
   placement: "top" | "bottom" | "left" | "right";
@@ -35,6 +36,16 @@ const ANCHORS: Array<{
   { value: "bottom_right", label: "右下", placement: "bottom" },
 ];
 
+const VERTICAL_ANCHORS: Array<{
+  value: BlockAnchor;
+  label: string;
+  placement: "top" | "bottom";
+}> = [
+  { value: "top_center", label: "顶部", placement: "top" },
+  { value: "middle_center", label: "居中", placement: "top" },
+  { value: "bottom_center", label: "底部", placement: "bottom" },
+];
+
 const MARGIN_META: Record<
   MarginSide,
   { label: string; icon: React.ReactNode }
@@ -48,18 +59,38 @@ const MARGIN_META: Record<
 interface Props {
   value: BlockLayout | null | undefined;
   fallbackMargin: number;
+  anchorMode?: BlockAnchorMode;
   onChange: (layout: BlockLayout | null) => void;
 }
 
 export function BlockLayoutEditor({
   value,
   fallbackMargin,
+  anchorMode = "vertical",
   onChange,
 }: Props) {
   const [linked, setLinked] = useState(true);
+  const anchors = anchorMode === "full" ? FULL_ANCHORS : VERTICAL_ANCHORS;
+
+  const centerAnchorFor = (anchor: BlockAnchor): BlockAnchor => {
+    const [vertical] = anchor.split("_");
+    if (vertical === "top") return "top_center";
+    if (vertical === "bottom") return "bottom_center";
+    return "middle_center";
+  };
+
+  const activeAnchor =
+    anchorMode === "full" || !value?.anchor
+      ? value?.anchor
+      : centerAnchorFor(value.anchor);
 
   const patch = (next: Partial<BlockLayout>) => {
-    onChange({ ...value, ...next });
+    const layout = { ...value, ...next };
+    if (anchorMode === "vertical") {
+      const sourceAnchor = next.anchor ?? value?.anchor;
+      if (sourceAnchor) layout.anchor = centerAnchorFor(sourceAnchor);
+    }
+    onChange(layout);
   };
 
   const setMargin = (side: MarginSide, next: number | null) => {
@@ -91,22 +122,28 @@ export function BlockLayoutEditor({
       </div>
 
       <div className="block-layout-editor__content">
-        <div className="block-layout-editor__anchor-grid">
-          {ANCHORS.map((anchor) => (
+        <div
+          className={`block-layout-editor__anchor-grid block-layout-editor__anchor-grid--${anchorMode}`}
+        >
+          {anchors.map((anchor) => (
             <Tooltip
               title={anchor.label}
               placement={anchor.placement}
-              align={anchor.offset ? { offset: anchor.offset } : undefined}
+              align={
+                "offset" in anchor && anchor.offset
+                  ? { offset: anchor.offset }
+                  : undefined
+              }
               autoAdjustOverflow={false}
               overlayClassName="block-layout-editor__tooltip"
               mouseEnterDelay={0.25}
               key={anchor.value}
             >
               <Button
-                type={value?.anchor === anchor.value ? "primary" : "text"}
+                type={activeAnchor === anchor.value ? "primary" : "text"}
                 className="block-layout-editor__anchor"
                 aria-label={anchor.label}
-                aria-pressed={value?.anchor === anchor.value}
+                aria-pressed={activeAnchor === anchor.value}
                 onClick={() => patch({ anchor: anchor.value })}
               >
                 <span className="block-layout-editor__anchor-dot" />

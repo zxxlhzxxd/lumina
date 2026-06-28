@@ -8,6 +8,8 @@ import type {
   HymnSummary,
   LiturgyText,
   LiturgyTextSummary,
+  MediaAsset,
+  MediaKind,
   Project,
   ProjectSummary,
   SlideModel,
@@ -21,10 +23,14 @@ declare global {
       getBackendInfo: () => Promise<{ port: number; baseUrl: string }>;
       savePptxDialog: (defaultName: string) => Promise<string | null>;
       pickMediaDialog: (
-        kind: "image" | "audio" | "video"
+        kind: MediaKind
       ) => Promise<string | null>;
       exportTemplateDialog: (defaultName: string) => Promise<string | null>;
       importTemplateDialog: () => Promise<string | null>;
+      exportHymnLibraryDialog: (defaultName: string) => Promise<string | null>;
+      importHymnLibraryDialog: () => Promise<string | null>;
+      exportLiturgyLibraryDialog: (defaultName: string) => Promise<string | null>;
+      importLiturgyLibraryDialog: () => Promise<string | null>;
     };
   }
 }
@@ -32,6 +38,11 @@ declare global {
 const FALLBACK_BASE_URL = "http://127.0.0.1:8799/api/v1";
 
 let baseUrlPromise: Promise<string> | null = null;
+
+export type SavePptxPathResult =
+  | { status: "selected"; path: string }
+  | { status: "canceled" }
+  | { status: "backend-default" };
 
 function resolveBaseUrl(): Promise<string> {
   if (!baseUrlPromise) {
@@ -166,6 +177,10 @@ export const api = {
   deleteHymn: (id: string) =>
     request<{ deleted: string }>("DELETE", `/hymns/${id}`),
   duplicateHymn: (id: string) => request<Hymn>("POST", `/hymns/${id}/duplicate`),
+  exportHymnLibrary: (path: string) =>
+    request<{ path: string; count: number }>("POST", "/hymns/export", { path }),
+  importHymnLibrary: (path: string) =>
+    request<{ imported: number; items: Hymn[] }>("POST", "/hymns/import", { path }),
 
   // ---- liturgy library ----
   listLiturgy: (query = "") =>
@@ -182,6 +197,16 @@ export const api = {
     request<{ deleted: string }>("DELETE", `/liturgy-texts/${id}`),
   duplicateLiturgy: (id: string) =>
     request<LiturgyText>("POST", `/liturgy-texts/${id}/duplicate`),
+  exportLiturgyLibrary: (path: string) =>
+    request<{ path: string; count: number }>("POST", "/liturgy-texts/export", {
+      path,
+    }),
+  importLiturgyLibrary: (path: string) =>
+    request<{ imported: number; items: LiturgyText[] }>(
+      "POST",
+      "/liturgy-texts/import",
+      { path }
+    ),
 
   // ---- service templates ----
   getTemplate: (id: string) => request<any>("GET", `/service-templates/${id}`),
@@ -201,10 +226,18 @@ export const api = {
     request<any>("POST", "/service-templates/import", { path }),
 
   // ---- media ----
-  importMedia: (projectId: string, sourcePath: string) =>
-    request<{ ref: string }>("POST", `/projects/${projectId}/media`, {
+  importMedia: (projectId: string, sourcePath: string, kind?: MediaKind) =>
+    request<{ ref: string; asset: MediaAsset }>("POST", `/projects/${projectId}/media`, {
       source_path: sourcePath,
+      kind: kind ?? null,
     }),
+  deleteMedia: (projectId: string, ref: string) => {
+    const file = ref.startsWith("media/") ? ref.slice("media/".length) : ref;
+    return request<{ deleted: string }>(
+      "DELETE",
+      `/projects/${projectId}/media/${encodeURIComponent(file)}`
+    );
+  },
 };
 
 export async function mediaUrl(projectId: string, ref: string): Promise<string> {
@@ -213,15 +246,16 @@ export async function mediaUrl(projectId: string, ref: string): Promise<string> 
   return `${base}/projects/${projectId}/media/${encodeURIComponent(file)}`;
 }
 
-export async function pickSavePath(defaultName: string): Promise<string | null> {
+export async function pickSavePath(defaultName: string): Promise<SavePptxPathResult> {
   if (window.lumina?.savePptxDialog) {
-    return window.lumina.savePptxDialog(defaultName);
+    const path = await window.lumina.savePptxDialog(defaultName);
+    return path ? { status: "selected", path } : { status: "canceled" };
   }
-  return null; // browser dev: backend chooses default path
+  return { status: "backend-default" }; // browser dev: backend chooses default path
 }
 
 export async function pickMediaFile(
-  kind: "image" | "audio" | "video"
+  kind: MediaKind
 ): Promise<string | null> {
   if (window.lumina?.pickMediaDialog) {
     return window.lumina.pickMediaDialog(kind);
@@ -241,6 +275,38 @@ export async function pickTemplateExportPath(
 export async function pickTemplateImportPath(): Promise<string | null> {
   if (window.lumina?.importTemplateDialog) {
     return window.lumina.importTemplateDialog();
+  }
+  return null;
+}
+
+export async function pickHymnLibraryExportPath(
+  defaultName: string
+): Promise<string | null> {
+  if (window.lumina?.exportHymnLibraryDialog) {
+    return window.lumina.exportHymnLibraryDialog(defaultName);
+  }
+  return null;
+}
+
+export async function pickHymnLibraryImportPath(): Promise<string | null> {
+  if (window.lumina?.importHymnLibraryDialog) {
+    return window.lumina.importHymnLibraryDialog();
+  }
+  return null;
+}
+
+export async function pickLiturgyLibraryExportPath(
+  defaultName: string
+): Promise<string | null> {
+  if (window.lumina?.exportLiturgyLibraryDialog) {
+    return window.lumina.exportLiturgyLibraryDialog(defaultName);
+  }
+  return null;
+}
+
+export async function pickLiturgyLibraryImportPath(): Promise<string | null> {
+  if (window.lumina?.importLiturgyLibraryDialog) {
+    return window.lumina.importLiturgyLibraryDialog();
   }
   return null;
 }

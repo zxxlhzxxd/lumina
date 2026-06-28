@@ -1,7 +1,12 @@
-import { useState } from "react";
-import { Button, Input, Switch, Segmented, InputNumber, Form, Tag } from "antd";
-import { BookOutlined } from "@ant-design/icons";
-import type { Hymn, LiturgyText, Section, SectionStyle } from "../types";
+import { useEffect, useState } from "react";
+import { Button, Input, Switch, Segmented, InputNumber, Form, Tag, Space, Tooltip } from "antd";
+import {
+  BookOutlined,
+  FormatPainterOutlined,
+  RetweetOutlined,
+  SwapOutlined,
+} from "@ant-design/icons";
+import type { Hymn, LiturgyText, MediaAsset, Section, SectionStyle } from "../types";
 import { SECTION_TYPE_LABEL } from "../types";
 import { ReferencePicker } from "./ReferencePicker";
 import { MediaPicker } from "./MediaPicker";
@@ -14,44 +19,94 @@ const { TextArea } = Input;
 interface Props {
   section: Section;
   projectId: string | null;
+  mediaAssets: MediaAsset[];
   effectiveStyle: SectionStyle;
   onChange: (patch: Partial<Section>) => void;
+  onMediaAssetChange: (asset: MediaAsset) => void;
+  onBlockLayoutOpenChange?: (blockId: string, open: boolean) => void;
 }
 
 // blank-line separated blocks <-> string[]
 const blocksToText = (blocks: string[]) => blocks.join("\n\n");
 const textToBlocks = (text: string) =>
-  text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  text.split(/\n\s*\n/).map((s) => s.trimEnd()).filter((s) => s.trim());
 
-// line separated items <-> string[]
-const linesToText = (lines: string[]) => lines.join("\n");
-const textToLines = (text: string) =>
-  text.split("\n").map((s) => s.trim()).filter(Boolean);
+const textToLyrics = (text: string) => (text.length ? [text] : []);
+const replacePunctuationWithSpaces = (text: string) => text.replace(/\p{P}/gu, " ");
+const formatLyricsByLineCount = (text: string, linesPerSlide: number) => {
+  const per = Math.max(1, linesPerSlide);
+  const lines = text.split("\n").map((s) => s.trimEnd()).filter((s) => s.trim());
+  const pages: string[] = [];
+  for (let i = 0; i < lines.length; i += per) {
+    pages.push(lines.slice(i, i + per).join("\n"));
+  }
+  return pages.join("\n\n");
+};
 
-export function SectionEditor({ section, projectId, effectiveStyle, onChange }: Props) {
+const announcementItemsToText = (items: string[]) => items.join("\n");
+const textToAnnouncementItems = (text: string) => (text.length ? [text] : []);
+
+export function SectionEditor({
+  section,
+  projectId,
+  mediaAssets,
+  effectiveStyle,
+  onChange,
+  onMediaAssetChange,
+  onBlockLayoutOpenChange,
+}: Props) {
   const patch = (p: Partial<Section>) => onChange(p);
   const [hymnLibOpen, setHymnLibOpen] = useState(false);
   const [liturgyLibOpen, setLiturgyLibOpen] = useState(false);
+  const [liturgyText, setLiturgyText] = useState("");
+  const [lyricsText, setLyricsText] = useState("");
+  const [announcementText, setAnnouncementText] = useState("");
+  const [lyricsFormatLineCount, setLyricsFormatLineCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (section.type === "liturgy_text") {
+      setLiturgyText(blocksToText(section.paragraphs));
+    } else if (section.type === "hymn") {
+      setLyricsText(blocksToText(section.lyrics));
+      setLyricsFormatLineCount(null);
+    } else if (section.type === "announcement") {
+      setAnnouncementText(announcementItemsToText(section.items));
+    }
+  }, [section.id, section.type]);
+
+  const applyLyricsText = (value: string) => {
+    setLyricsText(value);
+    patch({
+      lyrics: textToLyrics(value),
+      hymn_id: null,
+    } as Partial<Section>);
+  };
+
+  const applyAnnouncementText = (value: string) => {
+    setAnnouncementText(value);
+    patch({ items: textToAnnouncementItems(value) } as Partial<Section>);
+  };
 
   const insertHymn = (hymn: Hymn) => {
+    const lyrics = hymn.sections.map((s) => s.text);
+    setLyricsText(blocksToText(lyrics));
     patch({
       hymn_id: hymn.id || null,
       song_title: hymn.title,
       author: hymn.author,
       hymn_number: hymn.number,
-      lyrics: hymn.sections.map((s) => s.text),
+      lyrics,
     } as Partial<Section>);
     setHymnLibOpen(false);
   };
 
   const insertLiturgy = (text: LiturgyText) => {
+    setLiturgyText(blocksToText(text.paragraphs));
     patch({
       liturgy_id: text.id || null,
+      slide_title: text.title,
       paragraphs: text.paragraphs,
     } as Partial<Section>);
-    if (!section.title && text.title) {
-      patch({ title: text.title } as Partial<Section>);
-    }
     setLiturgyLibOpen(false);
   };
 
@@ -60,14 +115,6 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
       <div className="editor-section">
         <Tag color="gold">{SECTION_TYPE_LABEL[section.type]}</Tag>
         <Form layout="vertical" style={{ marginTop: 12 }}>
-          <Form.Item label={section.type === "media" ? "标题" : "段落名称"}>
-            <Input
-              value={section.title}
-              onChange={(e) => patch({ title: e.target.value } as Partial<Section>)}
-              placeholder={section.type === "media" ? "输入媒体页标题" : "段落名称"}
-            />
-          </Form.Item>
-
           {section.type === "cover" && (
             <>
               <Form.Item label="主标题">
@@ -114,6 +161,13 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "scripture" && (
             <>
+              <Form.Item label="经文标题">
+                <Input
+                  value={section.title}
+                  onChange={(e) => patch({ title: e.target.value } as Partial<Section>)}
+                  placeholder="如：证道经文"
+                />
+              </Form.Item>
               <Form.Item label="经文引用" extra="选择书卷与起止章节（可跨章），按容量自动分页">
                 <ReferencePicker
                   value={section.reference}
@@ -132,6 +186,20 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
                   onChange={(v) => patch({ show_verse_number: v } as Partial<Section>)}
                 />
               </Form.Item>
+              <Form.Item label="经文排列">
+                <Segmented
+                  value={section.verse_layout}
+                  options={[
+                    { label: "段落", value: "paragraph" },
+                    { label: "每节一行", value: "line_per_verse" },
+                  ]}
+                  onChange={(v) =>
+                    patch({
+                      verse_layout: v as "paragraph" | "line_per_verse",
+                    } as Partial<Section>)
+                  }
+                />
+              </Form.Item>
               <Form.Item label="每页字数（约）">
                 <InputNumber
                   min={40}
@@ -145,30 +213,33 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "liturgy_text" && (
             <>
+              <Form.Item label="礼文标题">
+                <Input
+                  value={section.slide_title}
+                  onChange={(e) =>
+                    patch({ slide_title: e.target.value } as Partial<Section>)
+                  }
+                  placeholder="输入礼文页标题"
+                />
+              </Form.Item>
               <Form.Item>
                 <Button icon={<BookOutlined />} onClick={() => setLiturgyLibOpen(true)}>
                   从礼文库选择
                 </Button>
               </Form.Item>
-              <Form.Item label="礼文内容" extra="空行分隔不同段落">
+              <Form.Item label="礼文内容" extra="空行分页">
                 <TextArea
                   rows={10}
-                  value={blocksToText(section.paragraphs)}
-                  onChange={(e) =>
+                  value={liturgyText}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setLiturgyText(value);
                     patch({
-                      paragraphs: textToBlocks(e.target.value),
+                      paragraphs: textToBlocks(value),
                       liturgy_id: null,
-                    } as Partial<Section>)
-                  }
-                  placeholder="输入礼文段落，空行分段"
-                />
-              </Form.Item>
-              <Form.Item label="每页字数（约）">
-                <InputNumber
-                  min={40}
-                  max={400}
-                  value={section.chars_per_slide}
-                  onChange={(v) => patch({ chars_per_slide: v ?? 160 } as Partial<Section>)}
+                    } as Partial<Section>);
+                  }}
+                  placeholder="输入礼文段落，空行分页"
                 />
               </Form.Item>
             </>
@@ -193,24 +264,54 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
                   onChange={(e) => patch({ author: e.target.value } as Partial<Section>)}
                 />
               </Form.Item>
-              <Form.Item label="歌词" extra="空行分隔不同段落；每行一句">
+              <Form.Item label="歌词" extra="空行分页">
+                <Space wrap size={[6, 6]} style={{ marginBottom: 8 }}>
+                  <Space.Compact>
+                    <InputNumber
+                      min={1}
+                      max={6}
+                      value={lyricsFormatLineCount}
+                      placeholder="行数"
+                      aria-label="每页歌词行数"
+                      style={{ width: 86 }}
+                      onChange={(v) => setLyricsFormatLineCount(v ?? null)}
+                    />
+                    <Tooltip title="清除现有空白行，并按指定行数插入分页空行">
+                      <Button
+                        icon={<FormatPainterOutlined />}
+                        disabled={!lyricsFormatLineCount}
+                        onClick={() => {
+                          if (!lyricsFormatLineCount) return;
+                          applyLyricsText(formatLyricsByLineCount(lyricsText, lyricsFormatLineCount));
+                        }}
+                      >
+                        按行分页
+                      </Button>
+                    </Tooltip>
+                  </Space.Compact>
+                  <Tooltip title="将中英文标点替换为空格">
+                    <Button
+                      icon={<RetweetOutlined />}
+                      onClick={() => applyLyricsText(replacePunctuationWithSpaces(lyricsText))}
+                    >
+                      标点→空格
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="将所有“你”替换为“祢”">
+                    <Button icon={<SwapOutlined />} onClick={() => applyLyricsText(lyricsText.replace(/你/g, "祢"))}>
+                      你→祢
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="将所有“他”替换为“祂”">
+                    <Button icon={<SwapOutlined />} onClick={() => applyLyricsText(lyricsText.replace(/他/g, "祂"))}>
+                      他→祂
+                    </Button>
+                  </Tooltip>
+                </Space>
                 <TextArea
                   rows={10}
-                  value={blocksToText(section.lyrics)}
-                  onChange={(e) =>
-                    patch({
-                      lyrics: textToBlocks(e.target.value),
-                      hymn_id: null,
-                    } as Partial<Section>)
-                  }
-                />
-              </Form.Item>
-              <Form.Item label="每页歌词行数">
-                <InputNumber
-                  min={1}
-                  max={6}
-                  value={section.lines_per_slide}
-                  onChange={(v) => patch({ lines_per_slide: v ?? 2 } as Partial<Section>)}
+                  value={lyricsText}
+                  onChange={(e) => applyLyricsText(e.target.value)}
                 />
               </Form.Item>
             </>
@@ -218,19 +319,17 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "announcement" && (
             <>
-              <Form.Item label="标题">
+              <Form.Item label="PPT 页面标题">
                 <Input
                   value={section.heading}
                   onChange={(e) => patch({ heading: e.target.value } as Partial<Section>)}
                 />
               </Form.Item>
-              <Form.Item label="公告事项" extra="每行一条">
+              <Form.Item label="公告事项" extra="空行分页">
                 <TextArea
                   rows={8}
-                  value={linesToText(section.items)}
-                  onChange={(e) =>
-                    patch({ items: textToLines(e.target.value) } as Partial<Section>)
-                  }
+                  value={announcementText}
+                  onChange={(e) => applyAnnouncementText(e.target.value)}
                 />
               </Form.Item>
             </>
@@ -238,6 +337,15 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
 
           {section.type === "media" && (
             <>
+              <Form.Item label="PPT 页面标题">
+                <Input
+                  value={section.slide_title}
+                  onChange={(e) =>
+                    patch({ slide_title: e.target.value } as Partial<Section>)
+                  }
+                  placeholder="输入媒体页标题"
+                />
+              </Form.Item>
               <Form.Item label="正文">
                 <TextArea
                   rows={8}
@@ -250,7 +358,9 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
                 <MediaPicker
                   kind="audio"
                   projectId={projectId}
+                  assets={mediaAssets}
                   value={section.audio_ref}
+                  onAssetChange={onMediaAssetChange}
                   onChange={(ref) => patch({ audio_ref: ref } as Partial<Section>)}
                 />
               </Form.Item>
@@ -281,8 +391,11 @@ export function SectionEditor({ section, projectId, effectiveStyle, onChange }: 
         <StylePanel
           section={section}
           projectId={projectId}
+          mediaAssets={mediaAssets}
           effectiveStyle={effectiveStyle}
           onChange={onChange}
+          onMediaAssetChange={onMediaAssetChange}
+          onBlockLayoutOpenChange={onBlockLayoutOpenChange}
         />
       </div>
 

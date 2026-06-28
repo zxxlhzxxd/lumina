@@ -12,11 +12,13 @@ export function SlidePreview({
   slide,
   slideSize,
   projectId,
+  highlightedBlockId,
   onClick,
 }: {
   slide: SlideModel;
   slideSize: SlideSize;
   projectId?: string | null;
+  highlightedBlockId?: string | null;
   onClick?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,17 +87,39 @@ export function SlidePreview({
         {boxes.map((box, i) => (
           <div
             key={i}
-            className="slide-card__text"
+            className={`slide-card__text${
+              box.blockId === highlightedBlockId
+                ? " slide-card__text--layout-highlight"
+                : ""
+            }`}
             style={boxStyle(box, style, scale)}
           >
-            <div className="slide-card__text-line">
-              <span
-                className="slide-card__text-run"
-                style={textRunStyle(style, box.role, box.blockId)}
-              >
-                {box.text}
-              </span>
-            </div>
+            {box.richText ? (
+              box.richText.map((line, lineIndex) => (
+                <div className="slide-card__text-line" key={lineIndex}>
+                  {line.map((run, runIndex) => (
+                    <span
+                      className={`slide-card__text-run${
+                        run.superscript ? " slide-card__text-run--superscript" : ""
+                      }`}
+                      style={textRunStyle(style, box.role, box.blockId)}
+                      key={`${lineIndex}-${runIndex}`}
+                    >
+                      {run.text}
+                    </span>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div className="slide-card__text-line">
+                <span
+                  className="slide-card__text-run"
+                  style={textRunStyle(style, box.role, box.blockId)}
+                >
+                  {box.text}
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -31,6 +31,7 @@ export function makeSection(type: SectionType): Section {
         reference: "",
         show_verse_number: true,
         include_title_slide: true,
+        verse_layout: "paragraph",
         pagination_mode: "auto",
         chars_per_slide: 140,
       };
@@ -47,13 +48,21 @@ export function makeSection(type: SectionType): Section {
         include_title_slide: true,
       };
     case "liturgy_text":
-      return { ...base, type, liturgy_id: null, paragraphs: [], chars_per_slide: 160 };
+      return {
+        ...base,
+        type,
+        liturgy_id: null,
+        slide_title: "",
+        paragraphs: [],
+        chars_per_slide: 160,
+      };
     case "announcement":
       return { ...base, type, heading: "", items: [] };
     case "media":
       return {
         ...base,
         type,
+        slide_title: "",
         body: "",
         audio_ref: null,
         play_mode: "once",

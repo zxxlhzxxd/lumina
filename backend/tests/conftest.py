@@ -4,6 +4,16 @@ import pytest
 from app.core.config import settings
 
 
+def _reset_library_singletons():
+    from app.services.hymn_store import hymn_store
+    from app.services.liturgy_store import liturgy_store
+
+    for store in (hymn_store, liturgy_store):
+        if store._conn is not None:
+            store._conn.close()
+        store._conn = None
+
+
 @pytest.fixture()
 def temp_data_dir(tmp_path):
     """Point all writable data paths at a fresh temp dir for the test."""
@@ -20,6 +30,8 @@ def temp_data_dir(tmp_path):
     settings.exports_dir = tmp_path / "exports"
     settings.library_db_path = tmp_path / "library.db"
     settings.ensure_dirs()
+    _reset_library_singletons()
     yield tmp_path
+    _reset_library_singletons()
     for key, value in original.items():
         setattr(settings, key, value)

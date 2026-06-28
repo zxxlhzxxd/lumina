@@ -2,7 +2,9 @@
 from app.domain.bible import BibleReference, RangeRef, Verse, VerseRef
 from app.domain.project import Project
 from app.domain.sections import (
+    AnnouncementSection,
     CoverSection,
+    HymnSection,
     LiturgyTextSection,
     MediaSection,
     ResponsiveReadingSection,
@@ -29,21 +31,78 @@ def stub_resolver(_raw: str):
 def test_responsive_alternates_roles():
     s = ResponsiveReadingSection(reference="以西结书4:1-3")
     slides = build_section_slides(s, stub_resolver)
-    assert [sl.label for sl in slides] == ["启", "应", "启"]
+    assert [sl.label for sl in slides] == ["启", "应", "合"]
     assert all(sl.kind == "responsive_verse" for sl in slides)
 
 
 def test_responsive_start_with_ying():
     s = ResponsiveReadingSection(reference="以西结书4:1-3", start_role="ying")
     slides = build_section_slides(s, stub_resolver)
-    assert [sl.label for sl in slides] == ["应", "启", "应"]
+    assert [sl.label for sl in slides] == ["应", "启", "合"]
 
 
 def test_scripture_title_and_pagination():
-    s = ScriptureSection(reference="以西结书4:1-3", chars_per_slide=20)
+    s = ScriptureSection(title="证道经文", reference="以西结书4:1-3", chars_per_slide=20)
     slides = build_section_slides(s, stub_resolver)
     assert slides[0].kind == "scripture_title"
+    assert slides[0].title == "证道经文"
     assert any(sl.kind == "scripture" for sl in slides)
+
+
+def test_scripture_title_falls_back_to_book_name():
+    s = ScriptureSection(title="", reference="以西结书4:1-3")
+    slides = build_section_slides(s, stub_resolver)
+    assert slides[0].title == "以西结书"
+
+
+def test_scripture_defaults_to_paragraph_layout():
+    s = ScriptureSection(
+        reference="以西结书4:1-3",
+        chars_per_slide=200,
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s, stub_resolver)
+    assert [sl.body for sl in slides] == ["1 第1节经文内容 2 第2节经文内容 3 第3节经文内容"]
+    assert slides[0].rich_body == [
+        [
+            {"text": "1", "superscript": True},
+            {"text": " 第1节经文内容"},
+            {"text": " "},
+            {"text": "2", "superscript": True},
+            {"text": " 第2节经文内容"},
+            {"text": " "},
+            {"text": "3", "superscript": True},
+            {"text": " 第3节经文内容"},
+        ]
+    ]
+
+
+def test_scripture_line_per_verse_layout():
+    s = ScriptureSection(
+        reference="以西结书4:1-3",
+        chars_per_slide=200,
+        include_title_slide=False,
+        verse_layout="line_per_verse",
+    )
+    slides = build_section_slides(s, stub_resolver)
+    assert [sl.body for sl in slides] == ["1 第1节经文内容\n2 第2节经文内容\n3 第3节经文内容"]
+    assert slides[0].rich_body == [
+        [{"text": "1", "superscript": True}, {"text": " 第1节经文内容"}],
+        [{"text": "2", "superscript": True}, {"text": " 第2节经文内容"}],
+        [{"text": "3", "superscript": True}, {"text": " 第3节经文内容"}],
+    ]
+
+
+def test_scripture_paragraph_without_verse_numbers():
+    s = ScriptureSection(
+        reference="以西结书4:1-3",
+        chars_per_slide=200,
+        include_title_slide=False,
+        show_verse_number=False,
+    )
+    slides = build_section_slides(s, stub_resolver)
+    assert [sl.body for sl in slides] == ["第1节经文内容第2节经文内容第3节经文内容"]
+    assert slides[0].rich_body is None
 
 
 def test_cover_single_slide():
@@ -52,17 +111,101 @@ def test_cover_single_slide():
     assert len(slides) == 1 and slides[0].title == "主日崇拜"
 
 
-def test_liturgy_pagination():
+def test_liturgy_uses_blank_line_as_page_break():
     s = LiturgyTextSection(
-        title="使徒信经", paragraphs=["第一段" * 10, "第二段" * 10], chars_per_slide=25
+        title="礼文段落",
+        slide_title="使徒信经",
+        paragraphs=["A\nB\n\nC\nD"],
     )
     slides = build_section_slides(s)
-    assert len(slides) == 2
+    assert [sl.body for sl in slides] == ["A\nB", "C\nD"]
+    assert [sl.title for sl in slides] == ["使徒信经", None]
+
+
+def test_liturgy_keeps_extra_blank_lines_after_page_break():
+    s = LiturgyTextSection(
+        slide_title="礼文",
+        paragraphs=["A\n\n\nB"],
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A", "\nB"]
+
+
+def test_liturgy_trailing_page_break_does_not_add_blank_slide():
+    s = LiturgyTextSection(
+        slide_title="礼文",
+        paragraphs=["A\nB\n"],
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+
+
+def test_liturgy_empty_section_keeps_single_blank_slide():
+    s = LiturgyTextSection(slide_title="礼文", paragraphs=[])
+    slides = build_section_slides(s)
+    assert len(slides) == 1
+    assert slides[0].title == "礼文"
+    assert slides[0].body == ""
+
+
+def test_hymn_uses_blank_line_as_page_break():
+    s = HymnSection(
+        lyrics=["A\nB\n\nC\nD"],
+        lines_per_slide=99,
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB", "C\nD"]
+
+
+def test_hymn_keeps_extra_blank_lines_after_page_break():
+    s = HymnSection(
+        lyrics=["A\n\n\nB"],
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A", "\nB"]
+
+
+def test_hymn_trailing_page_break_does_not_add_blank_slide():
+    s = HymnSection(
+        lyrics=["A\nB\n"],
+        include_title_slide=False,
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+
+
+def test_announcement_does_not_add_bullets():
+    s = AnnouncementSection(heading="家事报告", items=["A\nB"])
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+    assert "•" not in slides[0].body
+
+
+def test_announcement_uses_blank_line_as_page_break():
+    s = AnnouncementSection(heading="家事报告", items=["A\nB\n\nC\nD"])
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB", "C\nD"]
+    assert [sl.title for sl in slides] == ["家事报告", None]
+
+
+def test_announcement_keeps_old_multi_item_format_as_lines():
+    s = AnnouncementSection(heading="家事报告", items=["A", "B"])
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+
+
+def test_announcement_trailing_page_break_does_not_add_blank_slide():
+    s = AnnouncementSection(heading="家事报告", items=["A\nB\n"])
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
 
 
 def test_media_slide_carries_audio_playback_fields():
     s = MediaSection(
-        title="起立默祷",
+        title="媒体段落",
+        slide_title="起立默祷",
         body="请起立默祷\n静候音乐结束",
         audio_ref="media/prayer.wav",
         play_mode="loop",

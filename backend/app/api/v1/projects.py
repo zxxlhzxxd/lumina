@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.core.errors import NotFoundError
 from app.core.responses import ok
+from app.domain.media import MediaKind
 from app.domain.project import Project
 from app.services import media_store
 from app.services.export_service import export_project, validate_project
@@ -38,6 +39,8 @@ class ExportBody(BaseModel):
 
 class ImportMediaBody(BaseModel):
     source_path: str
+    kind: Optional[MediaKind] = None
+    name: Optional[str] = None
 
 
 def _safe_filename(name: str) -> str:
@@ -125,8 +128,10 @@ def save_to_disk(project_id: str) -> dict:
 # ---- media ---------------------------------------------------------------
 @router.post("/{project_id}/media")
 def import_media(project_id: str, body: ImportMediaBody) -> dict:
-    ref = project_store.import_media(project_id, body.source_path)
-    return ok({"ref": ref})
+    asset = project_store.import_media(
+        project_id, body.source_path, kind=body.kind, name=body.name
+    )
+    return ok({"ref": asset.ref, "asset": asset.model_dump()})
 
 
 @router.get("/{project_id}/media/{filename}")
@@ -135,6 +140,12 @@ def get_media(project_id: str, filename: str):
     if path is None or not path.exists():
         raise NotFoundError(f"媒体不存在: {filename}")
     return FileResponse(str(path))
+
+
+@router.delete("/{project_id}/media/{filename}")
+def delete_media(project_id: str, filename: str) -> dict:
+    project_store.delete_media(project_id, filename)
+    return ok({"deleted": filename})
 
 
 @router.get("/{project_id}/export/download")

@@ -1,4 +1,4 @@
-"""Zip container pack/unpack for `.lumina` (project) and `.lumina-template`.
+"""Zip container pack/unpack for portable Lumina `.lumina` files.
 
 A container is a zip holding:
     manifest.json   -> { kind, schema_version }

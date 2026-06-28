@@ -13,6 +13,15 @@ export type ReadingRole = "qi" | "ying";
 export type PlayMode = "once" | "loop";
 export type AudioTrigger = "click" | "auto";
 export type SlideSize = "16:9" | "4:3";
+export type MediaKind = "image" | "audio" | "video";
+
+export interface MediaAsset {
+  id: string;
+  kind: MediaKind;
+  name: string;
+  ref: string;
+  created_at?: string;
+}
 
 export interface TextStyle {
   font_family?: string | null;
@@ -95,6 +104,7 @@ export interface ScriptureSection extends SectionBase {
   reference: string;
   show_verse_number: boolean;
   include_title_slide: boolean;
+  verse_layout: "paragraph" | "line_per_verse";
   pagination_mode: "auto" | "manual";
   chars_per_slide: number;
 }
@@ -113,6 +123,7 @@ export interface HymnSection extends SectionBase {
 export interface LiturgyTextSection extends SectionBase {
   type: "liturgy_text";
   liturgy_id: string | null;
+  slide_title: string;
   paragraphs: string[];
   chars_per_slide: number;
 }
@@ -125,6 +136,7 @@ export interface AnnouncementSection extends SectionBase {
 
 export interface MediaSection extends SectionBase {
   type: "media";
+  slide_title: string;
   body: string;
   audio_ref: string | null;
   play_mode: PlayMode;
@@ -148,6 +160,7 @@ export interface Project {
   date: string | null;
   slide_size: SlideSize;
   sections: Section[];
+  media_assets: MediaAsset[];
   meta: { pastor: string; theme_scripture: string; notes: string };
   created_at?: string;
   updated_at?: string;
@@ -180,6 +193,7 @@ export interface TemplateSummary {
   builtin: boolean;
   description: string;
   section_count: number;
+  media_asset_count?: number;
 }
 
 export interface HymnLyricSection {
@@ -194,7 +208,6 @@ export interface Hymn {
   author: string;
   number: string;
   source: string;
-  builtin: boolean;
   sections: HymnLyricSection[];
 }
 
@@ -203,20 +216,17 @@ export interface HymnSummary {
   title: string;
   author: string;
   number: string;
-  builtin: boolean;
 }
 
 export interface LiturgyText {
   id: string;
   title: string;
-  builtin: boolean;
   paragraphs: string[];
 }
 
 export interface LiturgyTextSummary {
   id: string;
   title: string;
-  builtin: boolean;
   paragraph_count: number;
 }
 
@@ -230,15 +240,22 @@ export interface SlideModel {
   label: string | null;
   reference: string | null;
   body: string | null;
+  rich_body?: RichTextRun[][] | null;
   audio_ref?: string | null;
   play_mode?: PlayMode | null;
   audio_trigger?: AudioTrigger | null;
   style?: SectionStyle | null;
 }
 
+export interface RichTextRun {
+  text: string;
+  superscript?: boolean;
+}
+
 export interface ValidationIssue {
   level: "warning" | "error";
   section_id: string;
+  section_title?: string;
   message: string;
 }
 

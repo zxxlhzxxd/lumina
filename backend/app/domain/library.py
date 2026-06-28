@@ -1,8 +1,4 @@
-"""Content-library models: Hymn (赞美诗) and LiturgyText (礼文).
-
-These back the SQLite content library (built-in + user entries). Built-in
-entries are read-only; users can duplicate any entry into an editable copy.
-"""
+"""Content-library models: Hymn (赞美诗) and LiturgyText (礼文)."""
 from __future__ import annotations
 
 from typing import List
@@ -29,7 +25,6 @@ class Hymn(BaseModel):
     author: str = ""
     number: str = ""  # hymnal number, kept as string (may contain letters)
     source: str = ""  # provenance / hymnal name
-    builtin: bool = False
     sections: List[HymnLyricSection] = Field(default_factory=list)
 
     def lyric_blocks(self) -> List[str]:
@@ -41,7 +36,6 @@ class Hymn(BaseModel):
 class LiturgyText(BaseModel):
     id: str = Field(default_factory=_new_id)
     title: str = ""
-    builtin: bool = False
     paragraphs: List[str] = Field(default_factory=list)
 
 
@@ -50,26 +44,21 @@ class HymnSummary(BaseModel):
     title: str
     author: str
     number: str
-    builtin: bool
 
 
 class LiturgyTextSummary(BaseModel):
     id: str
     title: str
-    builtin: bool
     paragraph_count: int
 
 
 def hymn_summary(h: Hymn) -> HymnSummary:
-    return HymnSummary(
-        id=h.id, title=h.title, author=h.author, number=h.number, builtin=h.builtin
-    )
+    return HymnSummary(id=h.id, title=h.title, author=h.author, number=h.number)
 
 
 def liturgy_summary(t: LiturgyText) -> LiturgyTextSummary:
     return LiturgyTextSummary(
         id=t.id,
         title=t.title,
-        builtin=t.builtin,
         paragraph_count=len(t.paragraphs),
     )

@@ -5,16 +5,21 @@ import {
   Input,
   Modal,
   Space,
-  Tag,
   Tooltip,
 } from "antd";
 import {
   CopyOutlined,
   DeleteOutlined,
+  ExportOutlined,
+  ImportOutlined,
   PlusOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { api } from "../api";
+import {
+  api,
+  pickHymnLibraryExportPath,
+  pickHymnLibraryImportPath,
+} from "../api";
 import type { Hymn, HymnSummary } from "../types";
 
 const { TextArea } = Input;
@@ -35,7 +40,6 @@ const emptyDraft = (): Hymn => ({
   author: "",
   number: "",
   source: "",
-  builtin: false,
   sections: [],
 });
 
@@ -102,7 +106,7 @@ export function HymnLibraryModal({ open, onClose, onInsert }: Props) {
     try {
       const payload = buildPayload();
       const saved =
-        selectedId && !draft.builtin
+        selectedId
           ? await api.updateHymn(selectedId, payload)
           : await api.createHymn(payload);
       message.success("已保存");
@@ -144,6 +148,29 @@ export function HymnLibraryModal({ open, onClose, onInsert }: Props) {
     });
   };
 
+  const handleExportLibrary = async () => {
+    const path = await pickHymnLibraryExportPath("歌词库.lumina-hymn");
+    if (!path) return;
+    try {
+      const res = await api.exportHymnLibrary(path);
+      message.success(`已导出 ${res.count} 首诗歌`);
+    } catch (e: any) {
+      message.error(e.message ?? "导出失败");
+    }
+  };
+
+  const handleImportLibrary = async () => {
+    const path = await pickHymnLibraryImportPath();
+    if (!path) return;
+    try {
+      const res = await api.importHymnLibrary(path);
+      await load(query);
+      message.success(`已导入 ${res.imported} 首诗歌`);
+    } catch (e: any) {
+      message.error(e.message ?? "导入失败");
+    }
+  };
+
   const handleInsert = async () => {
     try {
       const hymn = selectedId ? await api.getHymn(selectedId) : buildPayload();
@@ -163,8 +190,8 @@ export function HymnLibraryModal({ open, onClose, onInsert }: Props) {
         <Button key="close" onClick={onClose}>
           关闭
         </Button>,
-        <Button key="save" onClick={handleSave} disabled={draft.builtin}>
-          {selectedId && !draft.builtin ? "保存修改" : "保存为新诗歌"}
+        <Button key="save" onClick={handleSave}>
+          {selectedId ? "保存修改" : "保存为新诗歌"}
         </Button>,
         <Button key="insert" type="primary" onClick={handleInsert}>
           插入到段落
@@ -191,6 +218,22 @@ export function HymnLibraryModal({ open, onClose, onInsert }: Props) {
           >
             新建诗歌
           </Button>
+          <Space.Compact style={{ width: "100%", marginBottom: 8 }}>
+            <Button
+              icon={<ImportOutlined />}
+              onClick={handleImportLibrary}
+              style={{ width: "50%" }}
+            >
+              导入
+            </Button>
+            <Button
+              icon={<ExportOutlined />}
+              onClick={handleExportLibrary}
+              style={{ width: "50%" }}
+            >
+              导出
+            </Button>
+          </Space.Compact>
           <div style={{ overflowY: "auto", flex: 1, border: "1px solid #303030", borderRadius: 6 }}>
             {list.map((h) => (
               <div
@@ -212,7 +255,6 @@ export function HymnLibraryModal({ open, onClose, onInsert }: Props) {
                     <span style={{ color: "#7d8794", fontSize: 12 }}> · {h.author}</span>
                   )}
                 </span>
-                {h.builtin && <Tag color="blue">内置</Tag>}
                 <Tooltip title="复制">
                   <Button
                     size="small"
@@ -224,57 +266,46 @@ export function HymnLibraryModal({ open, onClose, onInsert }: Props) {
                     }}
                   />
                 </Tooltip>
-                {!h.builtin && (
-                  <Tooltip title="删除">
-                    <Button
-                      size="small"
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(h);
-                      }}
-                    />
-                  </Tooltip>
-                )}
+                <Tooltip title="删除">
+                  <Button
+                    size="small"
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(h);
+                    }}
+                  />
+                </Tooltip>
               </div>
             ))}
           </div>
         </div>
 
         <div style={{ flex: 1 }}>
-          {draft.builtin && (
-            <Tag color="blue" style={{ marginBottom: 8 }}>
-              内置诗歌为只读，复制后可编辑
-            </Tag>
-          )}
           <Space direction="vertical" style={{ width: "100%" }} size={10}>
             <Input
               placeholder="诗歌名"
               value={draft.title}
-              disabled={draft.builtin}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             />
             <Space>
               <Input
                 placeholder="作者"
                 value={draft.author}
-                disabled={draft.builtin}
                 onChange={(e) => setDraft({ ...draft, author: e.target.value })}
               />
               <Input
                 placeholder="编号"
                 value={draft.number}
-                disabled={draft.builtin}
                 onChange={(e) => setDraft({ ...draft, number: e.target.value })}
               />
             </Space>
             <TextArea
               rows={13}
-              placeholder="歌词（空行分隔不同段落/节）"
+              placeholder="歌词（空行分页）"
               value={lyricsText}
-              disabled={draft.builtin}
               onChange={(e) => setLyricsText(e.target.value)}
             />
           </Space>

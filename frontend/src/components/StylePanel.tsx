@@ -1,5 +1,6 @@
 import { Button, Form, Space } from "antd";
 import type {
+  MediaAsset,
   Section,
   SectionStyle,
   SectionType,
@@ -13,8 +14,11 @@ import { mergeTextStyle } from "../styleResolve";
 interface Props {
   section: Section;
   projectId: string | null;
+  mediaAssets: MediaAsset[];
   effectiveStyle: SectionStyle;
   onChange: (patch: Partial<Section>) => void;
+  onMediaAssetChange: (asset: MediaAsset) => void;
+  onBlockLayoutOpenChange?: (blockId: string, open: boolean) => void;
 }
 
 type TextRole = "body" | "title" | "label";
@@ -98,8 +102,11 @@ function ColorField({
 export function StylePanel({
   section,
   projectId,
+  mediaAssets,
   effectiveStyle,
   onChange,
+  onMediaAssetChange,
+  onBlockLayoutOpenChange,
 }: Props) {
   const style: SectionStyle = section.style ?? {};
 
@@ -125,6 +132,10 @@ export function StylePanel({
     const effective =
       mergeTextStyle((effectiveStyle[role] ?? {}) as TextStyle, effectiveBlock.text) ??
       {};
+    const blockAnchorMode =
+      section.type === "responsive_reading" && blockId === "label"
+        ? "full"
+        : "vertical";
     return (
       <div className="style-workspace__text-role">
         <div className="style-workspace__role-label">{label}</div>
@@ -133,10 +144,12 @@ export function StylePanel({
           effectiveValue={effective}
           layoutValue={block.layout}
           fallbackMargin={effectiveStyle.margin ?? 0.8}
+          blockAnchorMode={blockAnchorMode}
           onChange={(patch) =>
             patchBlock(blockId, { text: { ...ts, ...patch } })
           }
           onLayoutChange={(layout) => patchBlock(blockId, { layout })}
+          onLayoutOpenChange={(open) => onBlockLayoutOpenChange?.(blockId, open)}
         />
       </div>
     );
@@ -156,7 +169,9 @@ export function StylePanel({
           <MediaPicker
             kind="image"
             projectId={projectId}
+            assets={mediaAssets}
             value={style.background_image ?? null}
+            onAssetChange={onMediaAssetChange}
             onChange={(ref) => patchStyle({ background_image: ref })}
           />
         </Form.Item>

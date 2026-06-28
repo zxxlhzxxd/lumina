@@ -2,7 +2,7 @@
 
 User templates live in `templates/<id>/` (template.json + media/) and can be
 created, edited, duplicated, saved from a project, and imported/exported as a
-`.lumina-template` zip container bundling all referenced media.
+`.lumina` zip container bundling all referenced media.
 """
 from __future__ import annotations
 
@@ -41,32 +41,47 @@ def _new_id() -> str:
 def _default_sunday_template() -> ServiceTemplate:
     sections = [
         CoverSection(title="礼拜封面", main_title="主日崇拜", sub_title=""),
-        MediaSection(title="起立默祷", body="请起立默祷", play_mode=PlayMode.ONCE),
+        MediaSection(
+            title="媒体：起立默祷",
+            slide_title="起立默祷",
+            body="请起立默祷",
+            play_mode=PlayMode.ONCE,
+        ),
         ResponsiveReadingSection(title="启应经文", reference=""),
         LiturgyTextSection(
-            title="使徒信经",
+            title="礼文：使徒信经",
+            slide_title="使徒信经",
             liturgy_id="builtin-apostles-creed",
             paragraphs=list(APOSTLES_CREED),
         ),
         HymnSection(title="赞美诗（一）", song_title=""),
         HymnSection(title="赞美诗（二）", song_title=""),
         HymnSection(title="赞美诗（三）", song_title=""),
-        LiturgyTextSection(title="祷告", paragraphs=[]),
+        LiturgyTextSection(title="礼文：祷告", slide_title="祷告", paragraphs=[]),
         LiturgyTextSection(
-            title="荣耀颂", liturgy_id="builtin-gloria", paragraphs=list(GLORIA)
+            title="礼文：荣耀颂",
+            slide_title="荣耀颂",
+            liturgy_id="builtin-gloria",
+            paragraphs=list(GLORIA),
         ),
         ScriptureSection(title="证道经文", reference=""),
         CoverSection(title="证道题目", main_title=""),
-        LiturgyTextSection(title="回应祷告", paragraphs=[]),
+        LiturgyTextSection(title="礼文：回应祷告", slide_title="回应祷告", paragraphs=[]),
         HymnSection(title="回应诗歌", song_title=""),
         AnnouncementSection(title="家事报告", heading="家事报告", items=[]),
         HymnSection(title="结束诗歌", song_title=""),
         LiturgyTextSection(
-            title="主祷文",
+            title="礼文：主祷文",
+            slide_title="主祷文",
             liturgy_id="builtin-lords-prayer",
             paragraphs=list(LORDS_PRAYER),
         ),
-        MediaSection(title="阿门颂", body="", play_mode=PlayMode.ONCE),
+        MediaSection(
+            title="媒体：阿门颂",
+            slide_title="阿门颂",
+            body="",
+            play_mode=PlayMode.ONCE,
+        ),
     ]
     return ServiceTemplate(
         id=BUILTIN_SUNDAY_ID,
@@ -187,10 +202,11 @@ class TemplateStore:
         dest_dir = self._ensure_work_dir(copy.id)
         src_dir = self.work_dir(template_id)
         if src_dir is not None:
-            refs = media_store.collect_media_refs(copy.sections)
+            refs = media_store.collect_all_media_refs(copy.sections, copy.media_assets)
             if refs:
                 mapping = media_store.copy_media(src_dir, dest_dir, refs)
                 media_store.rewrite_media_refs(copy.sections, mapping)
+                media_store.rewrite_asset_refs(copy.media_assets, mapping)
         self.write_file(copy)
         return copy
 
@@ -209,15 +225,19 @@ class TemplateStore:
             description=description,
             slide_size=project.slide_size,
             sections=[s.model_copy(deep=True) for s in project.sections],
+            media_assets=[asset.model_copy(deep=True) for asset in project.media_assets],
         )
         for s in template.sections:
             s.id = _new_id()
         dest_dir = self._ensure_work_dir(template.id)
         if source_media_dir is not None:
-            refs = media_store.collect_media_refs(template.sections)
+            refs = media_store.collect_all_media_refs(
+                template.sections, template.media_assets
+            )
             if refs:
                 mapping = media_store.copy_media(source_media_dir, dest_dir, refs)
                 media_store.rewrite_media_refs(template.sections, mapping)
+                media_store.rewrite_asset_refs(template.media_assets, mapping)
         self.write_file(template)
         return template
 

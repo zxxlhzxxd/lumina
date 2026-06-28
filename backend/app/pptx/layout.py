@@ -26,6 +26,7 @@ class TextBlockSpec:
     rect: Rect
     default_anchor: str
     size: float
+    rich_text: Optional[list[list[dict]]] = None
     bold: bool = False
     color: str = "#F5F5F5"
     align: str = "center"
@@ -219,6 +220,7 @@ def slide_text_blocks(
                 Rect(margin, body_top, content_width, body_height),
                 "middle_center",
                 40 if sm.section_type == "hymn" else 32,
+                rich_text=sm.rich_body,
                 bold=sm.section_type == "hymn",
             )
         )

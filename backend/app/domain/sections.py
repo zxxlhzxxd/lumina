@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import List, Literal, Optional, Union
 from uuid import uuid4
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from app.domain.enums import AudioTrigger, PlayMode, ReadingRole, SectionType
 from app.domain.style import SectionStyle
@@ -46,6 +46,7 @@ class ScriptureSection(SectionBase):
     reference: str = ""
     show_verse_number: bool = True
     include_title_slide: bool = True
+    verse_layout: Literal["paragraph", "line_per_verse"] = "paragraph"
     # 'auto' = paginate by capacity, 'manual' = use explicit page breaks (phase 2)
     pagination_mode: Literal["auto", "manual"] = "auto"
     chars_per_slide: int = 140  # capacity hint for auto pagination
@@ -66,8 +67,16 @@ class HymnSection(SectionBase):
 class LiturgyTextSection(SectionBase):
     type: Literal[SectionType.LITURGY_TEXT] = SectionType.LITURGY_TEXT
     liturgy_id: Optional[str] = None
+    slide_title: str = ""
     paragraphs: List[str] = Field(default_factory=list)
     chars_per_slide: int = 160
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_slide_title(cls, data):
+        if isinstance(data, dict) and "slide_title" not in data and data.get("title"):
+            return {**data, "slide_title": data["title"]}
+        return data
 
 
 class AnnouncementSection(SectionBase):
@@ -78,11 +87,19 @@ class AnnouncementSection(SectionBase):
 
 class MediaSection(SectionBase):
     type: Literal[SectionType.MEDIA] = SectionType.MEDIA
+    slide_title: str = ""
     body: str = Field(default="", validation_alias=AliasChoices("body", "caption"))
     audio_ref: Optional[str] = None  # media ref inside project
     play_mode: PlayMode = PlayMode.ONCE
     audio_trigger: AudioTrigger = AudioTrigger.CLICK
     video_ref: Optional[str] = None  # phase 3
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_slide_title(cls, data):
+        if isinstance(data, dict) and "slide_title" not in data and data.get("title"):
+            return {**data, "slide_title": data["title"]}
+        return data
 
 
 Section = Union[

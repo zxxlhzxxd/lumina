@@ -1,7 +1,7 @@
-"""Built-in liturgy texts (使徒信经 / 主祷文 / 荣耀颂 etc.).
+"""Default liturgy texts (使徒信经 / 主祷文 / 荣耀颂 etc.).
 
-Standard simplified-Chinese liturgical texts in the public domain. Used both to
-seed the liturgy library and (via stable ids) by the default service template.
+Standard simplified-Chinese liturgical texts in the public domain. The default
+service template uses these constants directly.
 """
 from __future__ import annotations
 
@@ -32,24 +32,21 @@ GLORIA: List[str] = [
 ]
 
 
-def builtin_liturgy_texts() -> List[LiturgyText]:
+def default_liturgy_texts() -> List[LiturgyText]:
     return [
         LiturgyText(
-            id="builtin-apostles-creed",
+            id="default-apostles-creed",
             title="使徒信经",
-            builtin=True,
             paragraphs=list(APOSTLES_CREED),
         ),
         LiturgyText(
-            id="builtin-lords-prayer",
+            id="default-lords-prayer",
             title="主祷文",
-            builtin=True,
             paragraphs=list(LORDS_PRAYER),
         ),
         LiturgyText(
-            id="builtin-gloria",
+            id="default-gloria",
             title="荣耀颂",
-            builtin=True,
             paragraphs=list(GLORIA),
         ),
     ]

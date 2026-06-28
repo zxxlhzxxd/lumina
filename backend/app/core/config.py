@@ -30,7 +30,7 @@ class Settings:
             os.environ.get("LUMINA_BIBLE_DB", str(self.app_data_dir / "bible.sqlite"))
         )
 
-        # Content library (hymns + liturgy texts); seeded with built-ins on first run.
+        # Content library (hymns + liturgy texts).
         self.library_db_path: Path = Path(
             os.environ.get("LUMINA_LIBRARY_DB", str(self.data_dir / "library.db"))
         )

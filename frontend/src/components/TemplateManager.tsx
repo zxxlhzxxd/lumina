@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { App as AntApp, Button, Modal, Space, Tag, Tooltip } from "antd";
+import { App as AntApp, Button, Modal, Space, Tooltip } from "antd";
 import {
   CopyOutlined,
   DeleteOutlined,
@@ -66,7 +66,7 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
   };
 
   const handleExport = async (t: TemplateSummary) => {
-    const path = await pickTemplateExportPath(`${t.name}.lumina-template`);
+    const path = await pickTemplateExportPath(`${t.name}.lumina`);
     if (!path) return;
     try {
       const res = await api.exportTemplate(t.id, path);
@@ -122,10 +122,10 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
               <span style={{ color: "#7d8794", fontSize: 12, marginLeft: 8 }}>
                 {t.section_count} 段
               </span>
-              {t.builtin && (
-                <Tag color="blue" style={{ marginLeft: 8 }}>
-                  内置
-                </Tag>
+              {(t.media_asset_count ?? 0) > 0 && (
+                <span style={{ color: "#7d8794", fontSize: 12, marginLeft: 8 }}>
+                  {t.media_asset_count} 个媒体
+                </span>
               )}
             </span>
             <Tooltip title="导出（含媒体）">
@@ -158,7 +158,7 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
           </div>
         ))}
         <div style={{ color: "#7d8794", fontSize: 12 }}>
-          导入/导出的模板容器（.lumina-template）包含全部引用的媒体文件。
+          导入/导出的模板容器（.lumina）包含全部引用的媒体文件。
         </div>
       </Space>
     </Modal>

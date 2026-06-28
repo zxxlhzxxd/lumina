@@ -15,9 +15,14 @@ from typing import List, Optional
 from uuid import uuid4
 
 from app.core.config import settings
-from app.core.errors import NotFoundError
+from app.core.errors import AppError, NotFoundError
+from app.domain.media import MediaAsset, MediaKind
+from app.domain.library import Hymn, HymnLyricSection, LiturgyText
 from app.domain.project import Project
+from app.domain.sections import HymnSection, LiturgyTextSection
 from app.services import container, media_store
+from app.services.hymn_store import hymn_store
+from app.services.liturgy_store import liturgy_store
 from app.services.template_store import template_store
 
 logger = logging.getLogger(__name__)
@@ -72,18 +77,24 @@ class ProjectStore:
                 date=date,
                 slide_size=template.slide_size,
                 sections=[s.model_copy(deep=True) for s in template.sections],
+                media_assets=[
+                    asset.model_copy(deep=True) for asset in template.media_assets
+                ],
             )
             for section in project.sections:
                 section.id = _new_id()
             # Carry template media into the project working dir.
             tpl_dir = template_store.work_dir(template_id)
             if tpl_dir is not None:
-                refs = media_store.collect_media_refs(project.sections)
+                refs = media_store.collect_all_media_refs(
+                    project.sections, project.media_assets
+                )
                 if refs:
                     mapping = media_store.copy_media(
                         tpl_dir, self.work_dir(project.id), refs
                     )
                     media_store.rewrite_media_refs(project.sections, mapping)
+                    media_store.rewrite_asset_refs(project.media_assets, mapping)
         else:
             project = Project(name=name or "未命名礼拜", date=date)
         self._projects[project.id] = project
@@ -125,10 +136,36 @@ class ProjectStore:
         if project_id not in self._projects:
             raise NotFoundError(f"工程不存在: {project_id}")
         project.id = project_id
+        self._sync_content_libraries(project)
         project.updated_at = _now()
         self._projects[project_id] = project
         self.write_file(project)
         return project
+
+    def _sync_content_libraries(self, project: Project) -> None:
+        for section in project.sections:
+            if isinstance(section, HymnSection):
+                title = section.song_title.strip()
+                if not title:
+                    continue
+                hymn = Hymn(
+                    title=title,
+                    author=section.author,
+                    number=section.hymn_number,
+                    sections=[
+                        HymnLyricSection(order=i, text=text)
+                        for i, text in enumerate(section.lyrics)
+                    ],
+                )
+                saved = hymn_store.upsert_by_title(hymn)
+                section.hymn_id = saved.id
+            elif isinstance(section, LiturgyTextSection):
+                title = section.slide_title.strip()
+                if not title:
+                    continue
+                text = LiturgyText(title=title, paragraphs=section.paragraphs)
+                saved = liturgy_store.upsert_by_title(text)
+                section.liturgy_id = saved.id
 
     def delete(self, project_id: str) -> None:
         if project_id not in self._projects:
@@ -176,8 +213,36 @@ class ProjectStore:
         return project
 
     # ---- media -----------------------------------------------------------
-    def import_media(self, project_id: str, source_path: str) -> str:
-        return media_store.import_media(self.work_dir(project_id), source_path)
+    def import_media(
+        self,
+        project_id: str,
+        source_path: str,
+        kind: Optional[MediaKind] = None,
+        name: Optional[str] = None,
+    ) -> MediaAsset:
+        project = self.get(project_id)
+        asset = media_store.import_media_asset(
+            self.work_dir(project_id), source_path, kind=kind, name=name
+        )
+        project.media_assets.append(asset)
+        project.updated_at = _now()
+        self.write_file(project)
+        return asset
+
+    def delete_media(self, project_id: str, filename: str) -> None:
+        project = self.get(project_id)
+        ref = filename if filename.startswith("media/") else f"media/{filename}"
+        refs_in_use = media_store.collect_media_refs(project.sections)
+        if ref in refs_in_use:
+            raise AppError("媒体正在被段落或样式使用，请先解除引用")
+        project.media_assets = [
+            asset for asset in project.media_assets if asset.ref != ref
+        ]
+        path = media_store.media_path(self.work_dir(project_id), ref)
+        if path is not None and path.exists():
+            path.unlink()
+        project.updated_at = _now()
+        self.write_file(project)
 
     # ---- persistence -----------------------------------------------------
     def write_file(self, project: Project, path: Optional[Path] = None) -> Path:

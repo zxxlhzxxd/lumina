@@ -1,8 +1,10 @@
 """Tests for template save-from-project and import/export with media."""
 from app.domain.project import Project
+from app.domain.media import MediaAsset
 from app.domain.sections import CoverSection, MediaSection
 from app.domain.style import SectionStyle, TextStyle
 from app.services import media_store
+from app.services.project_store import ProjectStore
 from app.services.template_store import TemplateStore
 
 
@@ -33,7 +35,7 @@ def test_export_import_roundtrip_with_media(temp_data_dir, tmp_path):
     project, src_dir = _project_with_media(tmp_path)
     tpl = store.from_project(project, src_dir, name="可分享模板")
 
-    out = tmp_path / "share.lumina-template"
+    out = tmp_path / "share.lumina"
     store.export(tpl.id, out)
     assert out.exists()
 
@@ -45,6 +47,58 @@ def test_export_import_roundtrip_with_media(temp_data_dir, tmp_path):
     # The background image ref is preserved and resolvable.
     ref = imported.sections[0].style.background_image
     assert media_store.media_path(wd, ref).exists()
+
+
+def test_template_carries_unreferenced_media_assets(temp_data_dir, tmp_path):
+    store = TemplateStore()
+    work = tmp_path / "proj"
+    work.mkdir()
+    media = media_store.media_dir(work)
+    (media / "video.mp4").write_bytes(b"VIDEODATA")
+    project = Project(
+        name="资源库模板",
+        media_assets=[
+            MediaAsset(
+                kind="video",
+                name="预留视频",
+                ref="media/video.mp4",
+            )
+        ],
+    )
+
+    tpl = store.from_project(project, work, name="带资源库模板")
+    wd = store.work_dir(tpl.id)
+    assert wd is not None
+    assert tpl.media_assets[0].name == "预留视频"
+    assert (wd / "media" / "video.mp4").read_bytes() == b"VIDEODATA"
+
+    out = tmp_path / "media-assets.lumina"
+    store.export(tpl.id, out)
+    imported = store.import_(out)
+    imported_wd = store.work_dir(imported.id)
+    assert imported.media_assets[0].ref == "media/video.mp4"
+    assert (imported_wd / "media" / "video.mp4").read_bytes() == b"VIDEODATA"
+
+
+def test_project_created_from_template_copies_media_assets(temp_data_dir, tmp_path):
+    store = TemplateStore()
+    work = tmp_path / "proj"
+    work.mkdir()
+    media = media_store.media_dir(work)
+    (media / "bg.png").write_bytes(b"BGDATA")
+    project = Project(
+        name="模板源",
+        media_assets=[
+            MediaAsset(kind="image", name="背景图", ref="media/bg.png")
+        ],
+    )
+    tpl = store.from_project(project, work, name="资源模板")
+
+    project_store = ProjectStore()
+    created = project_store.create(template_id=tpl.id)
+    wd = project_store.work_dir(created.id)
+    assert created.media_assets[0].name == "背景图"
+    assert (wd / "media" / "bg.png").read_bytes() == b"BGDATA"
 
 
 def test_builtin_template_readonly(temp_data_dir):
@@ -66,7 +120,8 @@ def test_builtin_template_media_sections_use_body(temp_data_dir):
     media_sections = [
         section for section in template.sections if isinstance(section, MediaSection)
     ]
-    assert media_sections[0].title == "起立默祷"
+    assert media_sections[0].title == "媒体：起立默祷"
+    assert media_sections[0].slide_title == "起立默祷"
     assert media_sections[0].body == "请起立默祷"
 
 
@@ -98,7 +153,7 @@ def test_font_style_survives_template_copy_and_container_roundtrip(
     assert copied_style.underline is True
     assert copied_style.highlight_color == "#FFF200"
 
-    out = tmp_path / "font-style.lumina-template"
+    out = tmp_path / "font-style.lumina"
     store.export(copied.id, out)
     imported = store.import_(out)
     imported_style = imported.sections[0].style.title
