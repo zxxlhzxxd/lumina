@@ -23,6 +23,7 @@ import {
   EditOutlined,
   ExportOutlined,
   MenuOutlined,
+  PictureOutlined,
   PlusOutlined,
   SaveOutlined,
   StopOutlined,
@@ -30,6 +31,7 @@ import {
 import { api, pickSavePath } from "./api";
 import type {
   Project,
+  MediaAsset,
   Section,
   SectionType,
   SlideModel,
@@ -42,6 +44,7 @@ import { ProjectListPage } from "./components/ProjectListPage";
 import { SectionEditor } from "./components/SectionEditor";
 import { SlidePreview } from "./components/SlidePreview";
 import { TemplateManager } from "./components/TemplateManager";
+import { MediaLibraryModal } from "./components/MediaLibraryModal";
 
 type BackendState = "loading" | "ready" | "error";
 type Screen = "list" | "editor";
@@ -57,6 +60,7 @@ function Main() {
   const [slides, setSlides] = useState<SlideModel[]>([]);
   const [newOpen, setNewOpen] = useState(false);
   const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -74,7 +78,7 @@ function Main() {
   const outlineItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const markProjectClean = useCallback((p: Project) => {
-    setSavedSnapshot(JSON.stringify(p));
+    setSavedSnapshot(JSON.stringify({ ...p, media_assets: p.media_assets ?? [] }));
     setDirty(false);
   }, []);
 
@@ -225,9 +229,9 @@ function Main() {
     async (id: string) => {
       try {
         const p = await api.getProject(id);
-        setProject(p);
+        setProject({ ...p, media_assets: p.media_assets ?? [] });
         setSelectedId(p.sections[0]?.id ?? null);
-        markProjectClean(p);
+        markProjectClean({ ...p, media_assets: p.media_assets ?? [] });
         setScreen("editor");
       } catch (e: any) {
         message.error(e.message ?? "加载失败");
@@ -244,9 +248,9 @@ function Main() {
   const handleCreate = async (templateId: string, name: string) => {
     try {
       const p = await api.createProject(templateId || null, name);
-      setProject(p);
+      setProject({ ...p, media_assets: p.media_assets ?? [] });
       setSelectedId(p.sections[0]?.id ?? null);
-      markProjectClean(p);
+      markProjectClean({ ...p, media_assets: p.media_assets ?? [] });
       setScreen("editor");
       setNewOpen(false);
       message.success("已创建工程");
@@ -270,6 +274,22 @@ function Main() {
     },
     []
   );
+
+  const upsertMediaAsset = useCallback((asset: MediaAsset) => {
+    setProject((prev) => {
+      if (!prev) return prev;
+      const mediaAssets = prev.media_assets ?? [];
+      const exists = mediaAssets.some(
+        (item) => item.id === asset.id || item.ref === asset.ref
+      );
+      return {
+        ...prev,
+        media_assets: exists
+          ? mediaAssets.map((item) => (item.ref === asset.ref ? asset : item))
+          : [...mediaAssets, asset],
+      };
+    });
+  }, []);
 
   const reorderSection = (from: number, to: number) => {
     setProject((prev) => {
@@ -367,9 +387,9 @@ function Main() {
     if (!project) return;
     try {
       const copy = await api.duplicateProject(project.id);
-      setProject(copy);
+      setProject({ ...copy, media_assets: copy.media_assets ?? [] });
       setSelectedId(copy.sections[0]?.id ?? null);
-      markProjectClean(copy);
+      markProjectClean({ ...copy, media_assets: copy.media_assets ?? [] });
       message.success("已复制为新工程");
     } catch (e: any) {
       message.error(e.message ?? "复制失败");
@@ -449,8 +469,9 @@ function Main() {
     try {
       const saved = await api.saveProject(project);
       await api.saveToDisk(project.id);
-      setProject(saved);
-      markProjectClean(saved);
+      const normalized = { ...saved, media_assets: saved.media_assets ?? [] };
+      setProject(normalized);
+      markProjectClean(normalized);
       message.success("已保存");
       return true;
     } catch (e: any) {
@@ -571,6 +592,9 @@ function Main() {
           <Space>
             <Button icon={<AppstoreOutlined />} onClick={() => setTemplateMgrOpen(true)}>
               模板
+            </Button>
+            <Button icon={<PictureOutlined />} onClick={() => setMediaLibraryOpen(true)}>
+              媒体资源库
             </Button>
             <Button icon={<CopyOutlined />} disabled={!project} onClick={duplicateProject}>
               复制工程
@@ -713,8 +737,10 @@ function Main() {
                     key={selectedSection.id}
                     section={selectedSection}
                     projectId={project.id}
+                    mediaAssets={project.media_assets ?? []}
                     effectiveStyle={selectedEffectiveStyle}
                     onChange={(patch) => updateSection(selectedSection.id, patch)}
+                    onMediaAssetChange={upsertMediaAsset}
                     onBlockLayoutOpenChange={handleBlockLayoutOpenChange}
                   />
                   {selectedDisplaySlides.length > 0 && (
@@ -774,6 +800,13 @@ function Main() {
         open={templateMgrOpen}
         onClose={() => setTemplateMgrOpen(false)}
         onChanged={refreshTemplates}
+      />
+
+      <MediaLibraryModal
+        open={mediaLibraryOpen}
+        project={project}
+        onClose={() => setMediaLibraryOpen(false)}
+        onChange={setProject}
       />
 
       <Modal

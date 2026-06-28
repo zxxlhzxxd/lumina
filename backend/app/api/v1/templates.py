@@ -40,6 +40,7 @@ def _summary(t: ServiceTemplate) -> dict:
         "builtin": t.builtin,
         "description": t.description,
         "section_count": len(t.sections),
+        "media_asset_count": len(t.media_assets),
     }
 
 

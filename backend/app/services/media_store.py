@@ -13,6 +13,7 @@ from typing import Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from app.core.errors import AppError, NotFoundError
+from app.domain.media import MediaAsset, MediaKind
 
 MEDIA_DIRNAME = "media"
 MEDIA_PREFIX = "media/"
@@ -21,6 +22,12 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
 AUDIO_EXTS = {".mp3", ".wav"}
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm"}
 ALLOWED_EXTS = IMAGE_EXTS | AUDIO_EXTS | VIDEO_EXTS
+
+EXTS_BY_KIND: dict[MediaKind, set[str]] = {
+    "image": IMAGE_EXTS,
+    "audio": AUDIO_EXTS,
+    "video": VIDEO_EXTS,
+}
 
 
 def media_dir(work_dir: Path) -> Path:
@@ -34,14 +41,33 @@ def _safe_name(name: str) -> str:
     return cleaned or "media"
 
 
-def import_media(work_dir: Path, source_path: str) -> str:
+def kind_for_ext(ext: str) -> Optional[MediaKind]:
+    ext = ext.lower()
+    for kind, exts in EXTS_BY_KIND.items():
+        if ext in exts:
+            return kind
+    return None
+
+
+def infer_kind(ref: str) -> Optional[MediaKind]:
+    return kind_for_ext(Path(ref).suffix)
+
+
+def import_media(
+    work_dir: Path,
+    source_path: str,
+    kind: Optional[MediaKind] = None,
+) -> str:
     """Copy a local file into `work_dir/media/`, returning its `media/<file>` ref."""
     src = Path(source_path).expanduser()
     if not src.exists() or not src.is_file():
         raise NotFoundError(f"媒体文件不存在: {source_path}")
     ext = src.suffix.lower()
-    if ext not in ALLOWED_EXTS:
+    detected = kind_for_ext(ext)
+    if detected is None:
         raise AppError(f"不支持的媒体格式: {ext or '未知'}")
+    if kind is not None and detected != kind:
+        raise AppError(f"请选择{_kind_label(kind)}文件")
     dest_dir = media_dir(work_dir)
     name = _safe_name(src.name)
     dest = dest_dir / name
@@ -51,6 +77,24 @@ def import_media(work_dir: Path, source_path: str) -> str:
         dest = dest_dir / name
     shutil.copy2(src, dest)
     return f"{MEDIA_PREFIX}{name}"
+
+
+def _kind_label(kind: MediaKind) -> str:
+    return {"image": "图片", "audio": "音频", "video": "视频"}[kind]
+
+
+def import_media_asset(
+    work_dir: Path,
+    source_path: str,
+    kind: Optional[MediaKind] = None,
+    name: Optional[str] = None,
+) -> MediaAsset:
+    ref = import_media(work_dir, source_path, kind=kind)
+    resolved_kind = kind or infer_kind(ref)
+    if resolved_kind is None:
+        raise AppError("无法识别媒体类型")
+    display_name = (name or Path(source_path).stem or Path(ref).name).strip()
+    return MediaAsset(kind=resolved_kind, name=display_name, ref=ref)
 
 
 def media_path(work_dir: Path, ref: str) -> Optional[Path]:
@@ -94,6 +138,22 @@ def collect_media_refs(sections: Iterable) -> List[str]:
     return seen
 
 
+def collect_asset_refs(assets: Iterable[MediaAsset]) -> List[str]:
+    seen: List[str] = []
+    for asset in assets:
+        if asset.ref.startswith(MEDIA_PREFIX) and asset.ref not in seen:
+            seen.append(asset.ref)
+    return seen
+
+
+def collect_all_media_refs(sections: Iterable, assets: Iterable[MediaAsset]) -> List[str]:
+    seen = collect_media_refs(sections)
+    for ref in collect_asset_refs(assets):
+        if ref not in seen:
+            seen.append(ref)
+    return seen
+
+
 def rewrite_media_refs(sections: Iterable, mapping: Dict[str, str]) -> None:
     """Replace media refs in-place according to `mapping` (old ref -> new ref)."""
     for section in sections:
@@ -106,6 +166,12 @@ def rewrite_media_refs(sections: Iterable, mapping: Dict[str, str]) -> None:
         audio = getattr(section, "audio_ref", None)
         if audio and audio in mapping:
             section.audio_ref = mapping[audio]
+
+
+def rewrite_asset_refs(assets: Iterable[MediaAsset], mapping: Dict[str, str]) -> None:
+    for asset in assets:
+        if asset.ref in mapping:
+            asset.ref = mapping[asset.ref]
 
 
 def copy_media(

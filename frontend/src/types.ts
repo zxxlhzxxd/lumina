@@ -13,6 +13,15 @@ export type ReadingRole = "qi" | "ying";
 export type PlayMode = "once" | "loop";
 export type AudioTrigger = "click" | "auto";
 export type SlideSize = "16:9" | "4:3";
+export type MediaKind = "image" | "audio" | "video";
+
+export interface MediaAsset {
+  id: string;
+  kind: MediaKind;
+  name: string;
+  ref: string;
+  created_at?: string;
+}
 
 export interface TextStyle {
   font_family?: string | null;
@@ -150,6 +159,7 @@ export interface Project {
   date: string | null;
   slide_size: SlideSize;
   sections: Section[];
+  media_assets: MediaAsset[];
   meta: { pastor: string; theme_scripture: string; notes: string };
   created_at?: string;
   updated_at?: string;
@@ -182,6 +192,7 @@ export interface TemplateSummary {
   builtin: boolean;
   description: string;
   section_count: number;
+  media_asset_count?: number;
 }
 
 export interface HymnLyricSection {

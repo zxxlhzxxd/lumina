@@ -122,6 +122,11 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
               <span style={{ color: "#7d8794", fontSize: 12, marginLeft: 8 }}>
                 {t.section_count} 段
               </span>
+              {(t.media_asset_count ?? 0) > 0 && (
+                <span style={{ color: "#7d8794", fontSize: 12, marginLeft: 8 }}>
+                  {t.media_asset_count} 个媒体
+                </span>
+              )}
             </span>
             <Tooltip title="导出（含媒体）">
               <Button

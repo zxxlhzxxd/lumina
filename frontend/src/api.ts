@@ -8,6 +8,8 @@ import type {
   HymnSummary,
   LiturgyText,
   LiturgyTextSummary,
+  MediaAsset,
+  MediaKind,
   Project,
   ProjectSummary,
   SlideModel,
@@ -21,7 +23,7 @@ declare global {
       getBackendInfo: () => Promise<{ port: number; baseUrl: string }>;
       savePptxDialog: (defaultName: string) => Promise<string | null>;
       pickMediaDialog: (
-        kind: "image" | "audio" | "video"
+        kind: MediaKind
       ) => Promise<string | null>;
       exportTemplateDialog: (defaultName: string) => Promise<string | null>;
       importTemplateDialog: () => Promise<string | null>;
@@ -219,10 +221,18 @@ export const api = {
     request<any>("POST", "/service-templates/import", { path }),
 
   // ---- media ----
-  importMedia: (projectId: string, sourcePath: string) =>
-    request<{ ref: string }>("POST", `/projects/${projectId}/media`, {
+  importMedia: (projectId: string, sourcePath: string, kind?: MediaKind) =>
+    request<{ ref: string; asset: MediaAsset }>("POST", `/projects/${projectId}/media`, {
       source_path: sourcePath,
+      kind: kind ?? null,
     }),
+  deleteMedia: (projectId: string, ref: string) => {
+    const file = ref.startsWith("media/") ? ref.slice("media/".length) : ref;
+    return request<{ deleted: string }>(
+      "DELETE",
+      `/projects/${projectId}/media/${encodeURIComponent(file)}`
+    );
+  },
 };
 
 export async function mediaUrl(projectId: string, ref: string): Promise<string> {
@@ -239,7 +249,7 @@ export async function pickSavePath(defaultName: string): Promise<string | null> 
 }
 
 export async function pickMediaFile(
-  kind: "image" | "audio" | "video"
+  kind: MediaKind
 ): Promise<string | null> {
   if (window.lumina?.pickMediaDialog) {
     return window.lumina.pickMediaDialog(kind);

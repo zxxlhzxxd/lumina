@@ -2,6 +2,8 @@
 from app.domain.sections import CoverSection, MediaSection
 from app.domain.style import SectionStyle
 from app.services import container, media_store
+from app.core.errors import AppError
+from app.services.project_store import ProjectStore
 
 
 def test_pack_unpack_roundtrip(tmp_path):
@@ -46,3 +48,28 @@ def test_import_media(tmp_path):
     ref = media_store.import_media(work, str(src))
     assert ref == "media/source.png"
     assert media_store.media_path(work, ref).read_bytes() == b"IMG"
+
+
+def test_import_media_rejects_wrong_kind(tmp_path):
+    src = tmp_path / "source.png"
+    src.write_bytes(b"IMG")
+    work = tmp_path / "work"
+    work.mkdir()
+    import pytest
+
+    with pytest.raises(AppError):
+        media_store.import_media(work, str(src), kind="audio")
+
+
+def test_project_delete_media_blocks_used_refs(temp_data_dir, tmp_path):
+    src = tmp_path / "song.wav"
+    src.write_bytes(b"AUDIO")
+    store = ProjectStore()
+    project = store.create(name="媒体工程")
+    asset = store.import_media(project.id, str(src), kind="audio")
+    project.sections = [MediaSection(audio_ref=asset.ref)]
+    store.write_file(project)
+    import pytest
+
+    with pytest.raises(AppError):
+        store.delete_media(project.id, "song.wav")

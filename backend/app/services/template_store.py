@@ -202,10 +202,11 @@ class TemplateStore:
         dest_dir = self._ensure_work_dir(copy.id)
         src_dir = self.work_dir(template_id)
         if src_dir is not None:
-            refs = media_store.collect_media_refs(copy.sections)
+            refs = media_store.collect_all_media_refs(copy.sections, copy.media_assets)
             if refs:
                 mapping = media_store.copy_media(src_dir, dest_dir, refs)
                 media_store.rewrite_media_refs(copy.sections, mapping)
+                media_store.rewrite_asset_refs(copy.media_assets, mapping)
         self.write_file(copy)
         return copy
 
@@ -224,15 +225,19 @@ class TemplateStore:
             description=description,
             slide_size=project.slide_size,
             sections=[s.model_copy(deep=True) for s in project.sections],
+            media_assets=[asset.model_copy(deep=True) for asset in project.media_assets],
         )
         for s in template.sections:
             s.id = _new_id()
         dest_dir = self._ensure_work_dir(template.id)
         if source_media_dir is not None:
-            refs = media_store.collect_media_refs(template.sections)
+            refs = media_store.collect_all_media_refs(
+                template.sections, template.media_assets
+            )
             if refs:
                 mapping = media_store.copy_media(source_media_dir, dest_dir, refs)
                 media_store.rewrite_media_refs(template.sections, mapping)
+                media_store.rewrite_asset_refs(template.media_assets, mapping)
         self.write_file(template)
         return template
 

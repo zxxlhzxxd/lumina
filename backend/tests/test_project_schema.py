@@ -1,6 +1,7 @@
 import json
 
 from app.domain.project import Project
+from app.domain.media import MediaAsset
 from app.domain.sections import CoverSection, LiturgyTextSection, MediaSection
 from app.domain.style import (
     BlockLayout,
@@ -69,6 +70,47 @@ def test_legacy_media_title_migrates_to_slide_title():
 
     data = json.loads(project.model_dump_json())
     assert data["sections"][0]["slide_title"] == "起立默祷"
+
+
+def test_legacy_media_refs_migrate_to_media_assets():
+    project = Project.model_validate(
+        {
+            "sections": [
+                {
+                    "type": "cover",
+                    "style": {"background_image": "media/bg.png"},
+                },
+                {
+                    "type": "media",
+                    "audio_ref": "media/prayer.wav",
+                    "video_ref": "media/placeholder.mp4",
+                },
+            ]
+        }
+    )
+
+    assets = {asset.ref: asset.kind for asset in project.media_assets}
+    assert assets == {
+        "media/bg.png": "image",
+        "media/prayer.wav": "audio",
+        "media/placeholder.mp4": "video",
+    }
+
+
+def test_media_assets_roundtrip_in_project():
+    project = Project(
+        media_assets=[
+            MediaAsset(
+                id="asset-1",
+                kind="audio",
+                name="默祷音频",
+                ref="media/prayer.wav",
+            )
+        ]
+    )
+    restored = Project.model_validate_json(project.model_dump_json())
+    assert restored.media_assets[0].id == "asset-1"
+    assert restored.media_assets[0].name == "默祷音频"
 
 
 def test_legacy_liturgy_title_migrates_to_slide_title():
