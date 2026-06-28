@@ -151,12 +151,32 @@ def _scripture_slides(s: ScriptureSection, resolve: PassageResolver) -> List[Sli
     return slides
 
 
+def _page_blocks_by_blank_lines(blocks: List[str]) -> List[List[str]]:
+    pages: List[List[str]] = []
+    current: List[str] = []
+    previous_nonblank = False
+    for block_index, block in enumerate(blocks):
+        if block_index > 0 and previous_nonblank:
+            pages.append(current)
+            current = []
+            previous_nonblank = False
+        for line in block.split("\n"):
+            if not line.strip() and previous_nonblank:
+                pages.append(current)
+                current = []
+                previous_nonblank = False
+                continue
+            current.append(line)
+            previous_nonblank = bool(line.strip())
+    if any(line.strip() for line in current):
+        pages.append(current)
+    return pages
+
+
 def _liturgy_slides(s: LiturgyTextSection) -> List[SlideModel]:
-    paragraphs = [p for p in s.paragraphs if p.strip()]
     slides: List[SlideModel] = []
-    capacity = max(20, s.chars_per_slide)
     title = s.slide_title or None
-    for i, page in enumerate(_paginate(paragraphs, capacity)):
+    for i, page in enumerate(_page_blocks_by_blank_lines(s.paragraphs)):
         slides.append(
             SlideModel(
                 kind="liturgy",
@@ -164,7 +184,7 @@ def _liturgy_slides(s: LiturgyTextSection) -> List[SlideModel]:
                 section_type=s.type.value,
                 index=i,
                 title=title if i == 0 else None,
-                body=page,
+                body="\n".join(page),
             )
         )
     if not slides:
@@ -197,26 +217,7 @@ def _hymn_slides(s: HymnSection) -> List[SlideModel]:
         )
         idx += 1
 
-    pages: List[List[str]] = []
-    current: List[str] = []
-    previous_nonblank = False
-    for block_index, block in enumerate(s.lyrics):
-        if block_index > 0 and previous_nonblank:
-            pages.append(current)
-            current = []
-            previous_nonblank = False
-        for line in block.split("\n"):
-            if not line.strip() and previous_nonblank:
-                pages.append(current)
-                current = []
-                previous_nonblank = False
-                continue
-            current.append(line)
-            previous_nonblank = bool(line.strip())
-    if any(line.strip() for line in current):
-        pages.append(current)
-
-    for page in pages:
+    for page in _page_blocks_by_blank_lines(s.lyrics):
         slides.append(
             SlideModel(
                 kind="hymn_lyric",
@@ -231,15 +232,28 @@ def _hymn_slides(s: HymnSection) -> List[SlideModel]:
 
 
 def _announcement_slides(s: AnnouncementSection) -> List[SlideModel]:
-    body = "\n".join(f"• {item}" for item in s.items if item.strip())
+    text_blocks = ["\n".join(s.items)] if s.items else []
+    pages = _page_blocks_by_blank_lines(text_blocks)
+    if not pages:
+        return [
+            SlideModel(
+                kind="announcement",
+                section_id=s.id,
+                section_type=s.type.value,
+                title=s.heading or "家事报告",
+                body=None,
+            )
+        ]
     return [
         SlideModel(
             kind="announcement",
             section_id=s.id,
             section_type=s.type.value,
-            title=s.heading or "家事报告",
-            body=body or None,
+            index=i,
+            title=(s.heading or "家事报告") if i == 0 else None,
+            body="\n".join(page),
         )
+        for i, page in enumerate(pages)
     ]
 
 

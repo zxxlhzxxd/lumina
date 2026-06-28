@@ -304,7 +304,7 @@ export function HymnLibraryModal({ open, onClose, onInsert }: Props) {
             </Space>
             <TextArea
               rows={13}
-              placeholder="歌词（空行分隔不同段落/节）"
+              placeholder="歌词（空行分页）"
               value={lyricsText}
               onChange={(e) => setLyricsText(e.target.value)}
             />

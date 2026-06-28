@@ -275,7 +275,7 @@ export function LiturgyLibraryModal({ open, onClose, onInsert }: Props) {
             />
             <TextArea
               rows={14}
-              placeholder="礼文内容（空行分隔段落）"
+              placeholder="礼文内容（空行分页）"
               value={bodyText}
               onChange={(e) => setBodyText(e.target.value)}
             />

@@ -2,6 +2,7 @@
 from app.domain.bible import BibleReference, RangeRef, Verse, VerseRef
 from app.domain.project import Project
 from app.domain.sections import (
+    AnnouncementSection,
     CoverSection,
     HymnSection,
     LiturgyTextSection,
@@ -53,17 +54,41 @@ def test_cover_single_slide():
     assert len(slides) == 1 and slides[0].title == "主日崇拜"
 
 
-def test_liturgy_pagination():
+def test_liturgy_uses_blank_line_as_page_break():
     s = LiturgyTextSection(
         title="礼文段落",
         slide_title="使徒信经",
-        paragraphs=["第一段" * 10, "第二段" * 10],
-        chars_per_slide=25,
+        paragraphs=["A\nB\n\nC\nD"],
     )
     slides = build_section_slides(s)
-    assert len(slides) == 2
-    assert slides[0].title == "使徒信经"
-    assert slides[1].title is None
+    assert [sl.body for sl in slides] == ["A\nB", "C\nD"]
+    assert [sl.title for sl in slides] == ["使徒信经", None]
+
+
+def test_liturgy_keeps_extra_blank_lines_after_page_break():
+    s = LiturgyTextSection(
+        slide_title="礼文",
+        paragraphs=["A\n\n\nB"],
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A", "\nB"]
+
+
+def test_liturgy_trailing_page_break_does_not_add_blank_slide():
+    s = LiturgyTextSection(
+        slide_title="礼文",
+        paragraphs=["A\nB\n"],
+    )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+
+
+def test_liturgy_empty_section_keeps_single_blank_slide():
+    s = LiturgyTextSection(slide_title="礼文", paragraphs=[])
+    slides = build_section_slides(s)
+    assert len(slides) == 1
+    assert slides[0].title == "礼文"
+    assert slides[0].body == ""
 
 
 def test_hymn_uses_blank_line_as_page_break():
@@ -90,6 +115,32 @@ def test_hymn_trailing_page_break_does_not_add_blank_slide():
         lyrics=["A\nB\n"],
         include_title_slide=False,
     )
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+
+
+def test_announcement_does_not_add_bullets():
+    s = AnnouncementSection(heading="家事报告", items=["A\nB"])
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+    assert "•" not in slides[0].body
+
+
+def test_announcement_uses_blank_line_as_page_break():
+    s = AnnouncementSection(heading="家事报告", items=["A\nB\n\nC\nD"])
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB", "C\nD"]
+    assert [sl.title for sl in slides] == ["家事报告", None]
+
+
+def test_announcement_keeps_old_multi_item_format_as_lines():
+    s = AnnouncementSection(heading="家事报告", items=["A", "B"])
+    slides = build_section_slides(s)
+    assert [sl.body for sl in slides] == ["A\nB"]
+
+
+def test_announcement_trailing_page_break_does_not_add_blank_slide():
+    s = AnnouncementSection(heading="家事报告", items=["A\nB\n"])
     slides = build_section_slides(s)
     assert [sl.body for sl in slides] == ["A\nB"]
 
