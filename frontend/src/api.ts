@@ -39,6 +39,11 @@ const FALLBACK_BASE_URL = "http://127.0.0.1:8799/api/v1";
 
 let baseUrlPromise: Promise<string> | null = null;
 
+export type SavePptxPathResult =
+  | { status: "selected"; path: string }
+  | { status: "canceled" }
+  | { status: "backend-default" };
+
 function resolveBaseUrl(): Promise<string> {
   if (!baseUrlPromise) {
     baseUrlPromise = (async () => {
@@ -241,11 +246,12 @@ export async function mediaUrl(projectId: string, ref: string): Promise<string> 
   return `${base}/projects/${projectId}/media/${encodeURIComponent(file)}`;
 }
 
-export async function pickSavePath(defaultName: string): Promise<string | null> {
+export async function pickSavePath(defaultName: string): Promise<SavePptxPathResult> {
   if (window.lumina?.savePptxDialog) {
-    return window.lumina.savePptxDialog(defaultName);
+    const path = await window.lumina.savePptxDialog(defaultName);
+    return path ? { status: "selected", path } : { status: "canceled" };
   }
-  return null; // browser dev: backend chooses default path
+  return { status: "backend-default" }; // browser dev: backend chooses default path
 }
 
 export async function pickMediaFile(

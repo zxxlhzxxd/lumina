@@ -459,7 +459,9 @@ function Main() {
 
   const doExport = async () => {
     if (!project) return;
-    const path = await pickSavePath(`${project.name || "礼拜"}.pptx`);
+    const savePath = await pickSavePath(`${project.name || "礼拜"}.pptx`);
+    if (savePath.status === "canceled") return;
+    const path = savePath.status === "selected" ? savePath.path : null;
     const res = await api.exportProject(project, path);
     message.success(`已导出: ${res.path}`);
   };
