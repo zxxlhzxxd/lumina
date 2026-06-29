@@ -117,7 +117,52 @@ npm run build
 
 `npm run build` 会先运行 `tsc --noEmit` 做 TypeScript 检查，然后构建 Vite 渲染进程产物。
 
-当前仓库还没有把后端打包和 Electron 安装包制作串成一个统一发布命令。开发阶段请使用 Python 虚拟环境运行后端，并通过 Electron 启动桌面壳。
+后端可执行文件构建：
+
+```bash
+cd backend
+python -m pip install -r requirements-build.txt
+python -m app.data.import_bible
+python -m PyInstaller --noconfirm --clean lumina-backend.spec
+```
+
+Electron 安装包会从 `backend/dist/lumina-backend` 读取后端产物。
+
+macOS arm64 安装包：
+
+```bash
+cd frontend
+npm run dist:mac
+```
+
+Windows x64 安装包：
+
+```bash
+cd frontend
+npm run dist:win
+```
+
+推送版本 tag 会触发 GitHub Release：
+
+```bash
+git tag v0.0.1
+git push origin v0.0.1
+```
+
+Release workflow 会构建 macOS arm64 和 Windows x64 安装包，上传到 GitHub draft release；GitHub 会自动提供该 tag 的 source code zip/tarball。macOS 和 Windows 签名是可选的：推送 tag 前在仓库 Actions secrets 中配置对应 secret 即可启用签名。
+
+macOS 签名/公证 secrets：
+
+- `APPLE_CERTIFICATE_BASE64`
+- `APPLE_CERTIFICATE_PASSWORD`
+- `APPLE_ID`
+- `APPLE_APP_SPECIFIC_PASSWORD`
+- `APPLE_TEAM_ID`
+
+Windows 签名 secrets：
+
+- `WIN_CSC_LINK`
+- `WIN_CSC_KEY_PASSWORD`
 
 ## 测试
 

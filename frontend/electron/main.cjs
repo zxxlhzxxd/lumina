@@ -7,7 +7,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
-const isDev = process.env.NODE_ENV === "development";
+const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
 let backendProcess = null;
 let backendPort = null;
@@ -23,14 +23,33 @@ function resolvePython(backendDir) {
   return process.platform === "win32" ? "python" : "python3";
 }
 
+function resolveBackendCommand() {
+  if (isDev) {
+    const backendDir = path.resolve(__dirname, "..", "..", "backend");
+    return {
+      command: resolvePython(backendDir),
+      args: ["-m", "app.main"],
+      cwd: backendDir,
+    };
+  }
+
+  const backendRoot = path.join(process.resourcesPath, "backend", "lumina-backend");
+  const executable = process.platform === "win32" ? "lumina-backend.exe" : "lumina-backend";
+  return {
+    command: path.join(backendRoot, executable),
+    args: [],
+    cwd: backendRoot,
+  };
+}
+
 function startBackend() {
-  const backendDir = path.resolve(__dirname, "..", "..", "backend");
-  const python = resolvePython(backendDir);
+  const backend = resolveBackendCommand();
 
   backendReady = new Promise((resolve, reject) => {
-    backendProcess = spawn(python, ["-m", "app.main"], {
-      cwd: backendDir,
+    backendProcess = spawn(backend.command, backend.args, {
+      cwd: backend.cwd,
       env: { ...process.env, LUMINA_PORT: "0", LUMINA_HOST: "127.0.0.1" },
+      windowsHide: true,
     });
 
     let resolved = false;

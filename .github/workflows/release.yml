@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    name: Build macOS arm64
+    runs-on: macos-15
+    env:
+      APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-build.txt
+          python -m app.data.import_bible
+          python -m PyInstaller --noconfirm --clean lumina-backend.spec
+
+      - name: Import Apple signing certificate
+        if: env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          KEYCHAIN_PASSWORD: temporary-keychain-password
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/apple_certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build macOS installer
+        working-directory: frontend
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          npm run dist:mac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumina-macos-arm64
+          path: frontend/release/*.dmg
+          if-no-files-found: error
+
+  build-win:
+    name: Build Windows x64
+    runs-on: windows-2025
+    env:
+      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-build.txt
+          python -m app.data.import_bible
+          python -m PyInstaller --noconfirm --clean lumina-backend.spec
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Windows installer
+        working-directory: frontend
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrEmpty($env:WIN_CSC_LINK)) {
+            $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
+          } else {
+            $env:CSC_LINK = $env:WIN_CSC_LINK
+            $env:CSC_KEY_PASSWORD = $env:WIN_CSC_KEY_PASSWORD
+          }
+          npm run dist:win
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumina-windows-x64
+          path: frontend/release/*.exe
+          if-no-files-found: error
+
+  release:
+    name: Create draft release
+    runs-on: ubuntu-24.04
+    needs:
+      - build-mac
+      - build-win
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" release-assets/* --clobber
+          else
+            gh release create "$TAG_NAME" release-assets/* \
+              --draft \
+              --title "Lumina $TAG_NAME" \
+              --notes "Draft desktop release for macOS arm64 and Windows x64."
+          fi

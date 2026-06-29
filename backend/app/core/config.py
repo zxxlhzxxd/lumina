@@ -6,6 +6,7 @@ backend subprocess (host/port) without code changes.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 
@@ -24,7 +25,10 @@ class Settings:
         self.data_dir: Path = Path(os.environ.get("LUMINA_DATA_DIR", str(default_data_dir)))
 
         # Directory of bundled application data (bible.sqlite, seed templates).
-        self.app_data_dir: Path = Path(__file__).resolve().parent.parent / "data"
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            self.app_data_dir: Path = Path(sys._MEIPASS) / "app" / "data"
+        else:
+            self.app_data_dir = Path(__file__).resolve().parent.parent / "data"
 
         self.bible_db_path: Path = Path(
             os.environ.get("LUMINA_BIBLE_DB", str(self.app_data_dir / "bible.sqlite"))

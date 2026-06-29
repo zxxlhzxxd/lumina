@@ -117,7 +117,52 @@ npm run build
 
 `npm run build` runs TypeScript checking with `tsc --noEmit` and then builds the Vite renderer bundle.
 
-Backend packaging and Electron installer packaging are not yet wired as one release command in this repository. During development, run the backend from the Python virtual environment and the desktop shell through Electron.
+Backend executable build:
+
+```bash
+cd backend
+python -m pip install -r requirements-build.txt
+python -m app.data.import_bible
+python -m PyInstaller --noconfirm --clean lumina-backend.spec
+```
+
+Electron installers expect the backend build at `backend/dist/lumina-backend`.
+
+macOS arm64 installer:
+
+```bash
+cd frontend
+npm run dist:mac
+```
+
+Windows x64 installer:
+
+```bash
+cd frontend
+npm run dist:win
+```
+
+GitHub releases are created by pushing a version tag:
+
+```bash
+git tag v0.0.1
+git push origin v0.0.1
+```
+
+The release workflow builds macOS arm64 and Windows x64 installers, uploads them to a draft GitHub Release, and GitHub automatically provides source-code archives for the tag. macOS and Windows signing is optional: configure repository Actions secrets before pushing a tag to enable signing.
+
+macOS signing/notarization secrets:
+
+- `APPLE_CERTIFICATE_BASE64`
+- `APPLE_CERTIFICATE_PASSWORD`
+- `APPLE_ID`
+- `APPLE_APP_SPECIFIC_PASSWORD`
+- `APPLE_TEAM_ID`
+
+Windows signing secrets:
+
+- `WIN_CSC_LINK`
+- `WIN_CSC_KEY_PASSWORD`
 
 ## Tests
 
