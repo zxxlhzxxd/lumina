@@ -39,9 +39,11 @@ exports.default = async function notarizeMac(context) {
     teamId: APPLE_TEAM_ID,
   };
 
+  console.log(`Notarizing macOS app bundle at ${appPath}.`);
   for (let attempt = 1; attempt <= RETRY_DELAYS_MS.length + 1; attempt += 1) {
     try {
       await notarize(options);
+      console.log("macOS notarization completed.");
       return;
     } catch (error) {
       if (attempt > RETRY_DELAYS_MS.length || !isRetryableNotarizationError(error)) {

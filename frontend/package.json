@@ -39,6 +39,7 @@
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "notarize": false,
       "target": [
         {
           "target": "dmg",
