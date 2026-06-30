@@ -1,6 +1,6 @@
 const path = require("path");
 
-const RETRY_DELAYS_MS = [15000, 30000, 60000];
+const RETRY_DELAYS_MS = [30000, 120000, 300000, 600000, 900000];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
