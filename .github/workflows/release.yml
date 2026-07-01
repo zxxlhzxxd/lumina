@@ -65,6 +65,7 @@ jobs:
 
       - name: Build macOS installer
         working-directory: frontend
+        timeout-minutes: 20
         run: |
           if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
             export CSC_IDENTITY_AUTO_DISCOVERY=false
