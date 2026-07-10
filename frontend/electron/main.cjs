@@ -42,54 +42,105 @@ function resolveBackendCommand() {
   };
 }
 
+function isBackendRunning() {
+  return (
+    backendProcess &&
+    !backendProcess.killed &&
+    backendProcess.exitCode === null &&
+    backendProcess.signalCode === null
+  );
+}
+
+function clearBackendState(processRef) {
+  if (processRef && backendProcess !== processRef) return;
+  backendProcess = null;
+  backendPort = null;
+  backendReady = null;
+}
+
 function startBackend() {
+  if (backendReady && isBackendRunning()) return backendReady;
+
   const backend = resolveBackendCommand();
 
   backendReady = new Promise((resolve, reject) => {
-    backendProcess = spawn(backend.command, backend.args, {
+    const child = spawn(backend.command, backend.args, {
       cwd: backend.cwd,
       env: { ...process.env, LUMINA_PORT: "0", LUMINA_HOST: "127.0.0.1" },
       windowsHide: true,
     });
+    backendProcess = child;
 
     let resolved = false;
+    let rejected = false;
+    let startupTimeout = null;
+
+    const rejectStartup = (err) => {
+      if (resolved || rejected) return;
+      rejected = true;
+      if (startupTimeout) clearTimeout(startupTimeout);
+      clearBackendState(child);
+      reject(err);
+    };
+
     const onData = (buf) => {
       const text = buf.toString();
       process.stdout.write(`[backend] ${text}`);
       const match = text.match(/LUMINA_PORT=(\d+)/);
-      if (match && !resolved) {
+      if (match && !resolved && !rejected) {
         resolved = true;
+        if (startupTimeout) clearTimeout(startupTimeout);
         backendPort = parseInt(match[1], 10);
         resolve(backendPort);
       }
     };
-    backendProcess.stdout.on("data", onData);
-    backendProcess.stderr.on("data", onData);
+    child.stdout.on("data", onData);
+    child.stderr.on("data", onData);
 
-    backendProcess.on("error", (err) => {
-      if (!resolved) reject(err);
+    child.on("error", (err) => {
+      rejectStartup(err);
     });
-    backendProcess.on("exit", (code) => {
-      process.stdout.write(`[backend] exited with code ${code}\n`);
-      if (!resolved) reject(new Error(`backend exited (code ${code})`));
+    child.on("exit", (code, signal) => {
+      const reason = signal ? `signal ${signal}` : `code ${code}`;
+      process.stdout.write(`[backend] exited with ${reason}\n`);
+      if (!resolved) {
+        rejectStartup(new Error(`backend exited (${reason})`));
+        return;
+      }
+      clearBackendState(child);
     });
 
-    setTimeout(() => {
-      if (!resolved) reject(new Error("backend startup timed out"));
+    startupTimeout = setTimeout(() => {
+      if (!resolved) {
+        if (!child.killed) child.kill();
+        rejectStartup(new Error("backend startup timed out"));
+      }
     }, 30000);
   });
 
   return backendReady;
 }
 
+function ensureBackend() {
+  if (backendReady && isBackendRunning()) return backendReady;
+  return startBackend();
+}
+
 function stopBackend() {
-  if (backendProcess && !backendProcess.killed) {
-    backendProcess.kill();
-    backendProcess = null;
+  const child = backendProcess;
+  clearBackendState(child);
+  if (child && !child.killed && child.exitCode === null) {
+    child.kill();
   }
 }
 
 function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    return mainWindow;
+  }
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -104,15 +155,21 @@ function createWindow() {
     },
   });
 
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+
   if (isDev) {
     mainWindow.loadURL("http://127.0.0.1:5173");
   } else {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
+
+  return mainWindow;
 }
 
 ipcMain.handle("backend:info", async () => {
-  const port = await backendReady;
+  const port = await ensureBackend();
   return { port, baseUrl: `http://127.0.0.1:${port}/api/v1` };
 });
 
@@ -198,19 +255,23 @@ ipcMain.handle("dialog:importLiturgyLibrary", async () => {
 
 app.whenReady().then(async () => {
   try {
-    await startBackend();
+    await ensureBackend();
   } catch (err) {
     process.stdout.write(`[backend] failed to start: ${err}\n`);
   }
   createWindow();
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  app.on("activate", async () => {
+    try {
+      await ensureBackend();
+    } catch (err) {
+      process.stdout.write(`[backend] failed to start: ${err}\n`);
+    }
+    createWindow();
   });
 });
 
 app.on("window-all-closed", () => {
-  stopBackend();
   if (process.platform !== "darwin") app.quit();
 });
 
