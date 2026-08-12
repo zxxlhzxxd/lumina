@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("lumina", {
   getBackendInfo: () => ipcRenderer.invoke("backend:info"),
   savePptxDialog: (defaultName) => ipcRenderer.invoke("dialog:savePptx", defaultName),
   pickMediaDialog: (kind) => ipcRenderer.invoke("dialog:pickMedia", kind),
+  pickMediaFilesDialog: (kind) => ipcRenderer.invoke("dialog:pickMediaFiles", kind),
   exportTemplateDialog: (defaultName) =>
     ipcRenderer.invoke("dialog:exportTemplate", defaultName),
   importTemplateDialog: () => ipcRenderer.invoke("dialog:importTemplate"),

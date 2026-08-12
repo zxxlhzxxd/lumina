@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Literal
+from typing import List, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -24,3 +24,14 @@ class MediaAsset(BaseModel):
     name: str = ""
     ref: str
     created_at: str = Field(default_factory=_now)
+
+
+class MediaImportFailure(BaseModel):
+    source_path: str
+    code: str
+    message: str
+
+
+class MediaBatchImportResult(BaseModel):
+    assets: List[MediaAsset] = Field(default_factory=list)
+    failed: List[MediaImportFailure] = Field(default_factory=list)

@@ -11,7 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.errors import NotFoundError
@@ -41,6 +41,11 @@ class ImportMediaBody(BaseModel):
     source_path: str
     kind: Optional[MediaKind] = None
     name: Optional[str] = None
+
+
+class ImportMediaBatchBody(BaseModel):
+    source_paths: list[str] = Field(min_length=1)
+    kind: MediaKind
 
 
 def _safe_filename(name: str) -> str:
@@ -132,6 +137,14 @@ def import_media(project_id: str, body: ImportMediaBody) -> dict:
         project_id, body.source_path, kind=body.kind, name=body.name
     )
     return ok({"ref": asset.ref, "asset": asset.model_dump()})
+
+
+@router.post("/{project_id}/media/batch")
+def import_media_batch(project_id: str, body: ImportMediaBatchBody) -> dict:
+    result = project_store.import_media_batch(
+        project_id, body.source_paths, kind=body.kind
+    )
+    return ok(result.model_dump())
 
 
 @router.get("/{project_id}/media/{filename}")

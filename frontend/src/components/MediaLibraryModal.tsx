@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   App as AntApp,
+  Alert,
   Button,
   Empty,
   Input,
@@ -18,8 +19,14 @@ import {
   SoundOutlined,
   VideoCameraOutlined,
 } from "@ant-design/icons";
-import { api, pickMediaFile } from "../api";
-import type { MediaAsset, MediaKind, Project, Section } from "../types";
+import { api, pickMediaFiles } from "../api";
+import type {
+  MediaAsset,
+  MediaBatchImportResult,
+  MediaKind,
+  Project,
+  Section,
+} from "../types";
 import { SECTION_TYPE_LABEL } from "../types";
 import { MediaThumb } from "./MediaPicker";
 
@@ -44,6 +51,10 @@ const KIND_ICON: Record<MediaKind, JSX.Element> = {
 
 function fileName(ref: string) {
   return ref.replace(/^media\//, "");
+}
+
+function sourceFileName(path: string) {
+  return path.split(/[\\/]/).pop() || path;
 }
 
 function assetLabel(asset: MediaAsset) {
@@ -76,6 +87,9 @@ export function MediaLibraryModal({ open, project, onClose, onChange }: Props) {
   const [activeKind, setActiveKind] = useState<MediaKind>("image");
   const [query, setQuery] = useState("");
   const [busyKind, setBusyKind] = useState<MediaKind | null>(null);
+  const [batchResult, setBatchResult] = useState<MediaBatchImportResult | null>(
+    null
+  );
 
   const assets = project?.media_assets ?? [];
   const visibleAssets = useMemo(() => {
@@ -93,26 +107,42 @@ export function MediaLibraryModal({ open, project, onClose, onChange }: Props) {
     onChange({ ...project, media_assets: nextAssets });
   };
 
-  const upsertAsset = (asset: MediaAsset) => {
-    const exists = assets.some((item) => item.id === asset.id || item.ref === asset.ref);
-    replaceAssets(exists ? assets.map((item) => (item.ref === asset.ref ? asset : item)) : [...assets, asset]);
+  const mergeAssets = (imported: MediaAsset[]) => {
+    const nextAssets = [...assets];
+    for (const asset of imported) {
+      const index = nextAssets.findIndex(
+        (item) => item.id === asset.id || item.ref === asset.ref
+      );
+      if (index >= 0) {
+        nextAssets[index] = asset;
+      } else {
+        nextAssets.push(asset);
+      }
+    }
+    replaceAssets(nextAssets);
   };
 
   const handleImport = async (kind: MediaKind) => {
     if (!project) return;
-    const path = await pickMediaFile(kind);
-    if (!path) return;
+    const paths = await pickMediaFiles(kind);
+    if (!paths.length) return;
+    setBatchResult(null);
     setBusyKind(kind);
     try {
-      const { asset } = await api.importMedia(project.id, path, kind);
-      upsertAsset(asset);
+      const result = await api.importMediaBatch(project.id, paths, kind);
+      mergeAssets(result.assets);
+      setBatchResult(result);
       setActiveKind(kind);
-      message.success(`已添加${KIND_LABEL[kind]}`);
     } catch (e: any) {
       message.error(e.message ?? "添加媒体失败");
     } finally {
       setBusyKind(null);
     }
+  };
+
+  const handleClose = () => {
+    setBatchResult(null);
+    onClose();
   };
 
   const renameAsset = (asset: MediaAsset, name: string) => {
@@ -141,10 +171,10 @@ export function MediaLibraryModal({ open, project, onClose, onChange }: Props) {
     <Modal
       title="媒体资源库"
       open={open}
-      onCancel={onClose}
+      onCancel={handleClose}
       width={840}
       footer={[
-        <Button key="close" onClick={onClose}>
+        <Button key="close" onClick={handleClose}>
           关闭
         </Button>,
       ]}
@@ -179,11 +209,37 @@ export function MediaLibraryModal({ open, project, onClose, onChange }: Props) {
             type="primary"
             icon={<PlusOutlined />}
             loading={busyKind === activeKind}
+            disabled={busyKind !== null}
             onClick={() => handleImport(activeKind)}
           >
             添加{KIND_LABEL[activeKind]}
           </Button>
         </div>
+        {batchResult && (
+          <Alert
+            showIcon
+            type={
+              batchResult.failed.length === 0
+                ? "success"
+                : batchResult.assets.length > 0
+                  ? "warning"
+                  : "error"
+            }
+            message={`批量导入完成：成功 ${batchResult.assets.length} 个，失败 ${batchResult.failed.length} 个`}
+            description={
+              batchResult.failed.length > 0 ? (
+                <ul className="media-import-failures">
+                  {batchResult.failed.map((failure, index) => (
+                    <li key={`${failure.source_path}-${index}`}>
+                      <strong>{sourceFileName(failure.source_path)}</strong>
+                      <span>{failure.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : undefined
+            }
+          />
+        )}
         {visibleAssets.length ? (
           <div className="media-library-list">
             {visibleAssets.map((asset) => {
