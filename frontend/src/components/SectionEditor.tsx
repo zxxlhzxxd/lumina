@@ -10,6 +10,7 @@ import type { Hymn, LiturgyText, MediaAsset, Section, SectionStyle } from "../ty
 import { SECTION_TYPE_LABEL } from "../types";
 import { ReferencePicker } from "./ReferencePicker";
 import { MediaPicker } from "./MediaPicker";
+import { AudioPreview } from "./AudioPreview";
 import { StylePanel } from "./StylePanel";
 import { HymnLibraryModal } from "./HymnLibraryModal";
 import { LiturgyLibraryModal } from "./LiturgyLibraryModal";
@@ -363,6 +364,14 @@ export function SectionEditor({
                   onAssetChange={onMediaAssetChange}
                   onChange={(ref) => patch({ audio_ref: ref } as Partial<Section>)}
                 />
+                {section.audio_ref && (
+                  <AudioPreview
+                    key={`${projectId ?? "unsaved"}:${section.audio_ref}`}
+                    projectId={projectId}
+                    audioRef={section.audio_ref}
+                    playMode={section.play_mode}
+                  />
+                )}
               </Form.Item>
               <Form.Item label="播放时机">
                 <Segmented
