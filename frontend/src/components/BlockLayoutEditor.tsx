@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, InputNumber, Tooltip } from "antd";
 import {
   ArrowDownOutlined,
@@ -57,6 +57,7 @@ const MARGIN_META: Record<
 };
 
 interface Props {
+  open: boolean;
   value: BlockLayout | null | undefined;
   fallbackMargin: number;
   anchorMode?: BlockAnchorMode;
@@ -64,13 +65,18 @@ interface Props {
 }
 
 export function BlockLayoutEditor({
+  open,
   value,
   fallbackMargin,
   anchorMode = "vertical",
   onChange,
 }: Props) {
-  const [linked, setLinked] = useState(true);
+  const [linked, setLinked] = useState(false);
   const anchors = anchorMode === "full" ? FULL_ANCHORS : VERTICAL_ANCHORS;
+
+  useEffect(() => {
+    setLinked(false);
+  }, [open]);
 
   const centerAnchorFor = (anchor: BlockAnchor): BlockAnchor => {
     const [vertical] = anchor.split("_");
@@ -104,6 +110,29 @@ export function BlockLayoutEditor({
       margin[side] = next;
     }
     patch({ margin });
+  };
+
+  const marginInput = (side: MarginSide) => {
+    const meta = MARGIN_META[side];
+    return (
+      <Tooltip title={`${meta.label}（英寸）`} placement="top" key={side}>
+        <div
+          className={`block-layout-editor__margin block-layout-editor__margin--${side}`}
+        >
+          {side !== "right" && <span aria-hidden>{meta.icon}</span>}
+          <InputNumber
+            aria-label={`${meta.label}（英寸）`}
+            min={0}
+            max={7.5}
+            step={0.1}
+            precision={1}
+            value={value?.margin?.[side] ?? fallbackMargin}
+            onChange={(next) => setMargin(side, next)}
+          />
+          {side === "right" && <span aria-hidden>{meta.icon}</span>}
+        </div>
+      </Tooltip>
+    );
   };
 
   return (
@@ -154,35 +183,21 @@ export function BlockLayoutEditor({
 
         <div className="block-layout-editor__margins">
           <div className="block-layout-editor__margin-grid">
-            {(["top", "right", "bottom", "left"] as MarginSide[]).map((side) => {
-              const meta = MARGIN_META[side];
-              return (
-                <Tooltip title={`${meta.label}（英寸）`} placement="top" key={side}>
-                  <div className="block-layout-editor__margin">
-                    <span aria-hidden>{meta.icon}</span>
-                    <InputNumber
-                      aria-label={`${meta.label}（英寸）`}
-                      min={0}
-                      max={7.5}
-                      step={0.1}
-                      precision={1}
-                      value={value?.margin?.[side] ?? fallbackMargin}
-                      onChange={(next) => setMargin(side, next)}
-                    />
-                  </div>
-                </Tooltip>
-              );
-            })}
+            {marginInput("top")}
+            {marginInput("left")}
+            <Tooltip title={linked ? "四边距已联动" : "四边距独立调整"}>
+              <Button
+                className="block-layout-editor__margin-link"
+                type={linked ? "primary" : "text"}
+                icon={linked ? <LockOutlined /> : <UnlockOutlined />}
+                aria-label={linked ? "取消四边距联动" : "联动四边距"}
+                aria-pressed={linked}
+                onClick={() => setLinked((current) => !current)}
+              />
+            </Tooltip>
+            {marginInput("right")}
+            {marginInput("bottom")}
           </div>
-          <Tooltip title={linked ? "四边距已联动" : "四边距独立调整"}>
-            <Button
-              type={linked ? "primary" : "text"}
-              icon={linked ? <LockOutlined /> : <UnlockOutlined />}
-              aria-label={linked ? "取消四边距联动" : "联动四边距"}
-              aria-pressed={linked}
-              onClick={() => setLinked((current) => !current)}
-            />
-          </Tooltip>
         </div>
       </div>
     </div>
