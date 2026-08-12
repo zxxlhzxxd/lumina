@@ -15,8 +15,13 @@ from typing import List, Optional
 from uuid import uuid4
 
 from app.core.config import settings
-from app.core.errors import AppError, NotFoundError
-from app.domain.media import MediaAsset, MediaKind
+from app.core.errors import AppError, ErrorCode, NotFoundError
+from app.domain.media import (
+    MediaAsset,
+    MediaBatchImportResult,
+    MediaImportFailure,
+    MediaKind,
+)
 from app.domain.library import Hymn, HymnLyricSection, LiturgyText
 from app.domain.project import Project
 from app.domain.sections import HymnSection, LiturgyTextSection
@@ -228,6 +233,45 @@ class ProjectStore:
         project.updated_at = _now()
         self.write_file(project)
         return asset
+
+    def import_media_batch(
+        self,
+        project_id: str,
+        source_paths: List[str],
+        kind: MediaKind,
+    ) -> MediaBatchImportResult:
+        project = self.get(project_id)
+        work_dir = self.work_dir(project_id)
+        result = MediaBatchImportResult()
+
+        for source_path in source_paths:
+            try:
+                asset = media_store.import_media_asset(
+                    work_dir, source_path, kind=kind
+                )
+                result.assets.append(asset)
+            except AppError as exc:
+                result.failed.append(
+                    MediaImportFailure(
+                        source_path=source_path,
+                        code=exc.code.value,
+                        message=exc.message,
+                    )
+                )
+            except OSError as exc:
+                result.failed.append(
+                    MediaImportFailure(
+                        source_path=source_path,
+                        code=ErrorCode.INTERNAL_ERROR.value,
+                        message=f"复制媒体文件失败: {exc.strerror or str(exc)}",
+                    )
+                )
+
+        if result.assets:
+            project.media_assets.extend(result.assets)
+            project.updated_at = _now()
+            self.write_file(project)
+        return result
 
     def delete_media(self, project_id: str, filename: str) -> None:
         project = self.get(project_id)

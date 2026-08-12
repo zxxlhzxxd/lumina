@@ -314,6 +314,19 @@ body {
   gap: 10px;
 }
 
+.media-import-failures {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.media-import-failures li + li {
+  margin-top: 4px;
+}
+
+.media-import-failures strong {
+  margin-right: 8px;
+}
+
 .media-library-list {
   display: flex;
   flex-direction: column;
