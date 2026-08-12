@@ -1,5 +1,7 @@
 """Tests for template save-from-project and import/export with media."""
 import json
+import warnings
+import zipfile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -56,6 +58,124 @@ def test_export_import_roundtrip_with_media(temp_data_dir, tmp_path):
     # The background image ref is preserved and resolvable.
     ref = imported.sections[0].style.background_image
     assert media_store.media_path(wd, ref).exists()
+
+    with zipfile.ZipFile(out) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+    assert manifest == {"kind": "template", "schema_version": 1}
+
+
+def _write_template_container(
+    path, manifest, template=None, duplicate_manifest=False
+):
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        if manifest is not None:
+            zf.writestr(
+                "manifest.json",
+                manifest if isinstance(manifest, bytes) else json.dumps(manifest),
+            )
+            if duplicate_manifest:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UserWarning)
+                    zf.writestr("manifest.json", json.dumps(manifest))
+        if template is not None:
+            zf.writestr("template.json", json.dumps(template))
+
+
+@pytest.mark.parametrize(
+    ("manifest", "duplicate_manifest", "message"),
+    [
+        (None, False, "缺少 manifest.json"),
+        ({"kind": "template", "schema_version": 1}, True, "manifest.json 重复"),
+        (b"not-json", False, "manifest.json 格式错误"),
+        (["template", 1], False, "manifest.json 必须是 JSON 对象"),
+        ({"schema_version": 1}, False, "类型不匹配"),
+        ({"kind": "project", "schema_version": 1}, False, "类型不匹配"),
+        ({"kind": "template"}, False, "schema_version 必须是"),
+        (
+            {"kind": "template", "schema_version": True},
+            False,
+            "schema_version 必须是",
+        ),
+        (
+            {"kind": "template", "schema_version": "1"},
+            False,
+            "schema_version 必须是",
+        ),
+        ({"kind": "template", "schema_version": 0}, False, "schema_version 必须是"),
+    ],
+)
+def test_template_import_rejects_invalid_manifest_without_side_effects(
+    temp_data_dir,
+    tmp_path,
+    manifest,
+    duplicate_manifest,
+    message,
+):
+    source = tmp_path / "invalid.lumina"
+    _write_template_container(
+        source,
+        manifest,
+        {"name": "不应导入"},
+        duplicate_manifest,
+    )
+    store = TemplateStore()
+
+    with pytest.raises(AppError, match=message):
+        store.import_(source)
+
+    assert list(temp_data_dir.joinpath("templates").iterdir()) == []
+
+
+def test_template_import_rejects_newer_version_with_details(temp_data_dir, tmp_path):
+    source = tmp_path / "future.lumina"
+    _write_template_container(
+        source,
+        {"kind": "template", "schema_version": 2},
+        {"name": "未来模板"},
+    )
+
+    with pytest.raises(AppError, match="文件版本 2.*当前支持版本 1") as exc_info:
+        TemplateStore().import_(source)
+
+    assert exc_info.value.details == {"file_version": 2, "supported_version": 1}
+    assert list(temp_data_dir.joinpath("templates").iterdir()) == []
+
+
+def test_template_import_api_returns_version_error(
+    temp_data_dir, tmp_path, monkeypatch
+):
+    source = tmp_path / "future-api.lumina"
+    _write_template_container(
+        source,
+        {"kind": "template", "schema_version": 2},
+        {"name": "未来 API 模板"},
+    )
+    monkeypatch.setattr(templates_api, "template_store", TemplateStore())
+
+    response = TestClient(create_app()).post(
+        "/api/v1/service-templates/import", json={"path": str(source)}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == {
+        "code": "VALIDATION_ERROR",
+        "message": "不支持的容器文件版本 2（当前支持版本 1）",
+        "details": {"file_version": 2, "supported_version": 1},
+    }
+
+
+def test_template_import_cleans_up_invalid_template_json(temp_data_dir, tmp_path):
+    source = tmp_path / "bad-template.lumina"
+    _write_template_container(
+        source,
+        {"kind": "template", "schema_version": 1},
+        "not-a-template-object",
+    )
+
+    with pytest.raises(AppError, match="template.json 格式错误"):
+        TemplateStore().import_(source)
+
+    assert list(temp_data_dir.joinpath("templates").iterdir()) == []
 
 
 def test_template_carries_unreferenced_media_assets(temp_data_dir, tmp_path):

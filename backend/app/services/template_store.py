@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
+from pydantic import ValidationError
+
 from app.core.config import settings
 from app.core.errors import AppError, NotFoundError
 from app.data.liturgy_seed import APOSTLES_CREED, GLORIA, LORDS_PRAYER
@@ -27,7 +29,7 @@ from app.domain.sections import (
     ResponsiveReadingSection,
     ScriptureSection,
 )
-from app.services import container, media_store
+from app.services import container, media_store, template_migrations
 
 logger = logging.getLogger(__name__)
 
@@ -276,35 +278,57 @@ class TemplateStore:
                 (tmp / TEMPLATE_JSON).write_text(
                     template.model_dump_json(indent=2), encoding="utf-8"
                 )
-                return container.pack(tmp, TEMPLATE_JSON, out_path, kind="template")
+                return container.pack(
+                    tmp,
+                    TEMPLATE_JSON,
+                    out_path,
+                    kind="template",
+                    schema_version=template_migrations.TEMPLATE_SCHEMA_VERSION,
+                )
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
         self.write_file(template)
-        return container.pack(work, TEMPLATE_JSON, out_path, kind="template")
+        return container.pack(
+            work,
+            TEMPLATE_JSON,
+            out_path,
+            kind="template",
+            schema_version=template_migrations.TEMPLATE_SCHEMA_VERSION,
+        )
 
     def import_(self, container_path: Path) -> ServiceTemplate:
+        settings.ensure_dirs()
         tmp = settings.templates_dir / f".import-{uuid4().hex[:8]}"
-        container.unpack(container_path, tmp)
-        json_path = tmp / TEMPLATE_JSON
-        if not json_path.exists():
-            shutil.rmtree(tmp, ignore_errors=True)
-            raise AppError("无效的模板容器：缺少 template.json")
-        template = ServiceTemplate.model_validate_json(
-            json_path.read_text(encoding="utf-8")
-        )
-        template.id = _new_id()
-        template.builtin = False
-        for s in template.sections:
-            s.id = _new_id()
-        target = settings.templates_dir / template.id
-        if target.exists():
-            shutil.rmtree(target, ignore_errors=True)
-        tmp.rename(target)
-        # Rewrite the json with new ids (media files keep their names).
-        (target / TEMPLATE_JSON).write_text(
-            template.model_dump_json(indent=2), encoding="utf-8"
-        )
-        return template
+        try:
+            template_migrations.unpack_and_migrate(container_path, tmp)
+            json_path = tmp / TEMPLATE_JSON
+            if not json_path.is_file():
+                raise AppError("无效的模板容器：缺少 template.json")
+            try:
+                template = ServiceTemplate.model_validate_json(
+                    json_path.read_text(encoding="utf-8")
+                )
+            except (OSError, ValidationError) as exc:
+                raise AppError("无效的模板容器：template.json 格式错误") from exc
+
+            template.id = _new_id()
+            target = settings.templates_dir / template.id
+            while target.exists():
+                template.id = _new_id()
+                target = settings.templates_dir / template.id
+            template.builtin = False
+            for section in template.sections:
+                section.id = _new_id()
+
+            # Complete all transformations before the single directory rename.
+            json_path.write_text(
+                template.model_dump_json(indent=2), encoding="utf-8"
+            )
+            tmp.rename(target)
+            return template
+        finally:
+            if tmp.exists():
+                shutil.rmtree(tmp, ignore_errors=True)
 
 
 template_store = TemplateStore()
