@@ -13,6 +13,7 @@ import type {
   MediaKind,
   Project,
   ProjectSummary,
+  ServiceTemplate,
   SlideModel,
   TemplateSummary,
   ValidationIssue,
@@ -211,7 +212,10 @@ export const api = {
     ),
 
   // ---- service templates ----
-  getTemplate: (id: string) => request<any>("GET", `/service-templates/${id}`),
+  getTemplate: (id: string) =>
+    request<ServiceTemplate>("GET", `/service-templates/${id}`),
+  renameTemplate: (id: string, name: string) =>
+    request<ServiceTemplate>("PATCH", `/service-templates/${id}`, { name }),
   deleteTemplate: (id: string) =>
     request<{ deleted: string }>("DELETE", `/service-templates/${id}`),
   duplicateTemplate: (id: string) =>

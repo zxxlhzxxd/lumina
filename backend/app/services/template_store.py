@@ -6,6 +6,7 @@ created, edited, duplicated, saved from a project, and imported/exported as a
 """
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -179,6 +180,26 @@ class TemplateStore:
         template.id = template_id
         template.builtin = False
         self.write_file(template)
+        return template
+
+    def rename(self, template_id: str, name: str) -> ServiceTemplate:
+        if template_id in self._builtin_ids:
+            raise AppError("内置流程模板为只读，请先复制后再编辑")
+        template = self.get(template_id)
+        if template is None:
+            raise NotFoundError(f"流程模板不存在: {template_id}")
+        cleaned_name = name.strip()
+        if not cleaned_name:
+            raise AppError("模板名称不能为空")
+        # Keep this a true partial update; model validation may materialize
+        # compatibility fields such as media_assets from legacy sections.
+        json_path = settings.templates_dir / template_id / TEMPLATE_JSON
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        payload["name"] = cleaned_name
+        json_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        template.name = cleaned_name
         return template
 
     def delete(self, template_id: str) -> None:
