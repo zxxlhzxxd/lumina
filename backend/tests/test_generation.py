@@ -190,6 +190,32 @@ def test_announcement_uses_blank_line_as_page_break():
     assert [sl.title for sl in slides] == ["家事报告", None]
 
 
+def test_announcement_empty_heading_does_not_fall_back_to_section_title():
+    s = AnnouncementSection(title="家事报告", heading="", items=["A"])
+    slides = build_section_slides(s)
+    assert [sl.title for sl in slides] == [None]
+
+
+def test_announcement_whitespace_heading_is_untitled_on_every_page():
+    s = AnnouncementSection(heading=" \t\n", items=["A\n\nB"])
+    slides = build_section_slides(s)
+    assert [sl.title for sl in slides] == [None, None]
+
+
+def test_announcement_custom_heading_only_appears_on_first_page():
+    s = AnnouncementSection(heading="本周消息", items=["A\n\nB"])
+    slides = build_section_slides(s)
+    assert [sl.title for sl in slides] == ["本周消息", None]
+
+
+def test_announcement_empty_heading_and_content_keeps_untitled_slide():
+    s = AnnouncementSection(title="左侧名称", heading="", items=[])
+    slides = build_section_slides(s)
+    assert len(slides) == 1
+    assert slides[0].title is None
+    assert slides[0].body is None
+
+
 def test_announcement_keeps_old_multi_item_format_as_lines():
     s = AnnouncementSection(heading="家事报告", items=["A", "B"])
     slides = build_section_slides(s)
