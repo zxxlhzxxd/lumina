@@ -207,6 +207,16 @@ export interface TemplateSummary {
   media_asset_count?: number;
 }
 
+export interface ServiceTemplate {
+  id: string;
+  name: string;
+  builtin: boolean;
+  description: string;
+  slide_size: SlideSize;
+  sections: Section[];
+  media_assets: MediaAsset[];
+}
+
 export interface HymnLyricSection {
   order: number;
   label: string;
