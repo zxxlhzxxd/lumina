@@ -6,6 +6,8 @@ const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const { createAppSettings } = require("./app-settings.cjs");
+const { showPptxSaveDialog } = require("./pptx-save-dialog.cjs");
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
@@ -13,6 +15,14 @@ let backendProcess = null;
 let backendPort = null;
 let backendReady = null; // Promise resolving to the port
 let mainWindow = null;
+let appSettings = null;
+
+function getAppSettings() {
+  if (!appSettings) {
+    appSettings = createAppSettings(app.getPath("userData"));
+  }
+  return appSettings;
+}
 
 function resolvePython(backendDir) {
   const venvPython =
@@ -174,12 +184,13 @@ ipcMain.handle("backend:info", async () => {
 });
 
 ipcMain.handle("dialog:savePptx", async (_evt, defaultName) => {
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: "导出 PowerPoint",
-    defaultPath: defaultName || "礼拜.pptx",
-    filters: [{ name: "PowerPoint", extensions: ["pptx"] }],
+  return showPptxSaveDialog({
+    dialog,
+    browserWindow: mainWindow,
+    settings: getAppSettings(),
+    documentsDirectory: app.getPath("documents"),
+    defaultName,
   });
-  return result.canceled ? null : result.filePath;
 });
 
 const mediaFilterMap = {
