@@ -1,9 +1,10 @@
 """Tests for template save-from-project and import/export with media."""
-from app.domain.project import Project
 from app.domain.media import MediaAsset
-from app.domain.sections import CoverSection, MediaSection
+from app.domain.project import Project
+from app.domain.sections import AnnouncementSection, CoverSection, MediaSection
 from app.domain.style import SectionStyle, TextStyle
 from app.services import media_store
+from app.services.generation import build_section_slides
 from app.services.project_store import ProjectStore
 from app.services.template_store import TemplateStore
 
@@ -123,6 +124,21 @@ def test_builtin_template_media_sections_use_body(temp_data_dir):
     assert media_sections[0].title == "起立默祷"
     assert media_sections[0].slide_title == "起立默祷"
     assert media_sections[0].body == "请起立默祷"
+
+
+def test_project_created_from_builtin_template_keeps_announcement_heading(
+    temp_data_dir,
+):
+    project = ProjectStore().create(template_id="builtin-sunday")
+    announcement = next(
+        section
+        for section in project.sections
+        if isinstance(section, AnnouncementSection)
+    )
+
+    assert announcement.title == "家事报告"
+    assert announcement.heading == "家事报告"
+    assert build_section_slides(announcement)[0].title == "家事报告"
 
 
 def test_font_style_survives_template_copy_and_container_roundtrip(
