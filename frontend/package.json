@@ -10,10 +10,12 @@
     "dev:electron": "wait-on tcp:127.0.0.1:5173 && cross-env NODE_ENV=development electron .",
     "dev": "concurrently -k -n VITE,ELECTRON -c blue,green \"npm:dev:vite\" \"npm:dev:electron\"",
     "build": "tsc --noEmit && vite build",
+    "icons:build": "python3 scripts/generate_app_icons.py --build",
+    "icons:check": "python3 scripts/generate_app_icons.py --check",
     "test:electron": "node --test electron/tests/app-settings.test.cjs electron/tests/pptx-save-dialog.test.cjs",
-    "dist": "npm run build && electron-builder",
-    "dist:mac": "npm run build && electron-builder --mac dmg --arm64",
-    "dist:win": "npm run build && electron-builder --win nsis --x64",
+    "dist": "npm run icons:check && npm run build && electron-builder",
+    "dist:mac": "npm run icons:check && npm run build && electron-builder --mac dmg --arm64",
+    "dist:win": "npm run icons:check && npm run build && electron-builder --win nsis --x64",
     "preview": "vite preview"
   },
   "build": {
