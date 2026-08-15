@@ -1,6 +1,6 @@
 {
   "name": "lumina-frontend",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Lumina desktop UI (Electron + React + TypeScript)",
   "author": "Lumina",
   "license": "MIT",
