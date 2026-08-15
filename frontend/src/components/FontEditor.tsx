@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Button,
   ColorPicker,
@@ -154,6 +155,13 @@ export function FontEditor({
   onLayoutChange,
   onLayoutOpenChange,
 }: Props) {
+  const [layoutOpen, setLayoutOpen] = useState(false);
+
+  const handleLayoutOpenChange = (open: boolean) => {
+    setLayoutOpen(open);
+    onLayoutOpenChange?.(open);
+  };
+
   const toggle = (key: BooleanStyleKey) => {
     onChange({ [key]: effectiveValue[key] !== true } as Partial<TextStyle>);
   };
@@ -279,13 +287,15 @@ export function FontEditor({
         <Divider type="vertical" />
 
         <Popover
+          open={layoutOpen}
           trigger="click"
           placement="bottomRight"
           arrow={false}
           overlayClassName="block-layout-popover"
-          onOpenChange={onLayoutOpenChange}
+          onOpenChange={handleLayoutOpenChange}
           content={
             <BlockLayoutEditor
+              open={layoutOpen}
               value={layoutValue}
               fallbackMargin={fallbackMargin}
               anchorMode={blockAnchorMode}

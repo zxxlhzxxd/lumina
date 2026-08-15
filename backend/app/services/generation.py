@@ -266,6 +266,7 @@ def _hymn_slides(s: HymnSection) -> List[SlideModel]:
 
 
 def _announcement_slides(s: AnnouncementSection) -> List[SlideModel]:
+    title = s.heading if s.heading.strip() else None
     text_blocks = ["\n".join(s.items)] if s.items else []
     pages = _page_blocks_by_blank_lines(text_blocks)
     if not pages:
@@ -274,7 +275,7 @@ def _announcement_slides(s: AnnouncementSection) -> List[SlideModel]:
                 kind="announcement",
                 section_id=s.id,
                 section_type=s.type.value,
-                title=s.heading or "家事报告",
+                title=title,
                 body=None,
             )
         ]
@@ -284,7 +285,7 @@ def _announcement_slides(s: AnnouncementSection) -> List[SlideModel]:
             section_id=s.id,
             section_type=s.type.value,
             index=i,
-            title=(s.heading or "家事报告") if i == 0 else None,
+            title=title if i == 0 else None,
             body="\n".join(page),
         )
         for i, page in enumerate(pages)

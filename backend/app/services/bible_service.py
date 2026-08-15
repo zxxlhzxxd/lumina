@@ -14,15 +14,17 @@ from app.core.errors import BibleNotAvailableError, InvalidReferenceError
 from app.domain.bible import BibleReference, Book, RangeRef, Verse, VerseRef
 from app.services import reference_parser
 from app.services.reference_parser import ParsedReference, RawRange
+from app.services.text_transform import TransformPipeline, verse_display_pipeline
 
 
 class BibleService:
-    def __init__(self) -> None:
+    def __init__(self, display_pipeline: Optional[TransformPipeline] = None) -> None:
         self._lock = threading.Lock()
         self._conn: Optional[sqlite3.Connection] = None
         # alias (normalized) -> (book_id, canonical_name), longest alias first
         self._aliases: List[Tuple[str, int, str]] = []
         self._loaded = False
+        self._display = display_pipeline or verse_display_pipeline()
 
     # ---- lifecycle -------------------------------------------------------
     def is_available(self) -> bool:
@@ -187,7 +189,7 @@ class BibleService:
                         book_name=ref.book_name,
                         chapter=row["chapter"],
                         verse=row["verse"],
-                        text=row["text"],
+                        text=self._display.apply(row["text"]),
                     )
                 )
         return verses

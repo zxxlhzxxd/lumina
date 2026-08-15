@@ -6,11 +6,14 @@ created, edited, duplicated, saved from a project, and imported/exported as a
 """
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
+
+from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.errors import AppError, NotFoundError
@@ -26,7 +29,7 @@ from app.domain.sections import (
     ResponsiveReadingSection,
     ScriptureSection,
 )
-from app.services import container, media_store
+from app.services import container, media_store, template_migrations
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +184,26 @@ class TemplateStore:
         self.write_file(template)
         return template
 
+    def rename(self, template_id: str, name: str) -> ServiceTemplate:
+        if template_id in self._builtin_ids:
+            raise AppError("内置流程模板为只读，请先复制后再编辑")
+        template = self.get(template_id)
+        if template is None:
+            raise NotFoundError(f"流程模板不存在: {template_id}")
+        cleaned_name = name.strip()
+        if not cleaned_name:
+            raise AppError("模板名称不能为空")
+        # Keep this a true partial update; model validation may materialize
+        # compatibility fields such as media_assets from legacy sections.
+        json_path = settings.templates_dir / template_id / TEMPLATE_JSON
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        payload["name"] = cleaned_name
+        json_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        template.name = cleaned_name
+        return template
+
     def delete(self, template_id: str) -> None:
         if template_id in self._builtin_ids:
             raise AppError("内置流程模板不可删除")
@@ -255,35 +278,57 @@ class TemplateStore:
                 (tmp / TEMPLATE_JSON).write_text(
                     template.model_dump_json(indent=2), encoding="utf-8"
                 )
-                return container.pack(tmp, TEMPLATE_JSON, out_path, kind="template")
+                return container.pack(
+                    tmp,
+                    TEMPLATE_JSON,
+                    out_path,
+                    kind="template",
+                    schema_version=template_migrations.TEMPLATE_SCHEMA_VERSION,
+                )
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
         self.write_file(template)
-        return container.pack(work, TEMPLATE_JSON, out_path, kind="template")
+        return container.pack(
+            work,
+            TEMPLATE_JSON,
+            out_path,
+            kind="template",
+            schema_version=template_migrations.TEMPLATE_SCHEMA_VERSION,
+        )
 
     def import_(self, container_path: Path) -> ServiceTemplate:
+        settings.ensure_dirs()
         tmp = settings.templates_dir / f".import-{uuid4().hex[:8]}"
-        container.unpack(container_path, tmp)
-        json_path = tmp / TEMPLATE_JSON
-        if not json_path.exists():
-            shutil.rmtree(tmp, ignore_errors=True)
-            raise AppError("无效的模板容器：缺少 template.json")
-        template = ServiceTemplate.model_validate_json(
-            json_path.read_text(encoding="utf-8")
-        )
-        template.id = _new_id()
-        template.builtin = False
-        for s in template.sections:
-            s.id = _new_id()
-        target = settings.templates_dir / template.id
-        if target.exists():
-            shutil.rmtree(target, ignore_errors=True)
-        tmp.rename(target)
-        # Rewrite the json with new ids (media files keep their names).
-        (target / TEMPLATE_JSON).write_text(
-            template.model_dump_json(indent=2), encoding="utf-8"
-        )
-        return template
+        try:
+            template_migrations.unpack_and_migrate(container_path, tmp)
+            json_path = tmp / TEMPLATE_JSON
+            if not json_path.is_file():
+                raise AppError("无效的模板容器：缺少 template.json")
+            try:
+                template = ServiceTemplate.model_validate_json(
+                    json_path.read_text(encoding="utf-8")
+                )
+            except (OSError, ValidationError) as exc:
+                raise AppError("无效的模板容器：template.json 格式错误") from exc
+
+            template.id = _new_id()
+            target = settings.templates_dir / template.id
+            while target.exists():
+                template.id = _new_id()
+                target = settings.templates_dir / template.id
+            template.builtin = False
+            for section in template.sections:
+                section.id = _new_id()
+
+            # Complete all transformations before the single directory rename.
+            json_path.write_text(
+                template.model_dump_json(indent=2), encoding="utf-8"
+            )
+            tmp.rename(target)
+            return template
+        finally:
+            if tmp.exists():
+                shutil.rmtree(tmp, ignore_errors=True)
 
 
 template_store = TemplateStore()

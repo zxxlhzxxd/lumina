@@ -1,9 +1,20 @@
 """Tests for template save-from-project and import/export with media."""
-from app.domain.project import Project
+import json
+import warnings
+import zipfile
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.api.v1 import templates as templates_api
+from app.core.errors import AppError
 from app.domain.media import MediaAsset
-from app.domain.sections import CoverSection, MediaSection
+from app.domain.project import Project
+from app.domain.sections import AnnouncementSection, CoverSection, MediaSection
 from app.domain.style import SectionStyle, TextStyle
+from app.main import create_app
 from app.services import media_store
+from app.services.generation import build_section_slides
 from app.services.project_store import ProjectStore
 from app.services.template_store import TemplateStore
 
@@ -47,6 +58,124 @@ def test_export_import_roundtrip_with_media(temp_data_dir, tmp_path):
     # The background image ref is preserved and resolvable.
     ref = imported.sections[0].style.background_image
     assert media_store.media_path(wd, ref).exists()
+
+    with zipfile.ZipFile(out) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+    assert manifest == {"kind": "template", "schema_version": 1}
+
+
+def _write_template_container(
+    path, manifest, template=None, duplicate_manifest=False
+):
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        if manifest is not None:
+            zf.writestr(
+                "manifest.json",
+                manifest if isinstance(manifest, bytes) else json.dumps(manifest),
+            )
+            if duplicate_manifest:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UserWarning)
+                    zf.writestr("manifest.json", json.dumps(manifest))
+        if template is not None:
+            zf.writestr("template.json", json.dumps(template))
+
+
+@pytest.mark.parametrize(
+    ("manifest", "duplicate_manifest", "message"),
+    [
+        (None, False, "缺少 manifest.json"),
+        ({"kind": "template", "schema_version": 1}, True, "manifest.json 重复"),
+        (b"not-json", False, "manifest.json 格式错误"),
+        (["template", 1], False, "manifest.json 必须是 JSON 对象"),
+        ({"schema_version": 1}, False, "类型不匹配"),
+        ({"kind": "project", "schema_version": 1}, False, "类型不匹配"),
+        ({"kind": "template"}, False, "schema_version 必须是"),
+        (
+            {"kind": "template", "schema_version": True},
+            False,
+            "schema_version 必须是",
+        ),
+        (
+            {"kind": "template", "schema_version": "1"},
+            False,
+            "schema_version 必须是",
+        ),
+        ({"kind": "template", "schema_version": 0}, False, "schema_version 必须是"),
+    ],
+)
+def test_template_import_rejects_invalid_manifest_without_side_effects(
+    temp_data_dir,
+    tmp_path,
+    manifest,
+    duplicate_manifest,
+    message,
+):
+    source = tmp_path / "invalid.lumina"
+    _write_template_container(
+        source,
+        manifest,
+        {"name": "不应导入"},
+        duplicate_manifest,
+    )
+    store = TemplateStore()
+
+    with pytest.raises(AppError, match=message):
+        store.import_(source)
+
+    assert list(temp_data_dir.joinpath("templates").iterdir()) == []
+
+
+def test_template_import_rejects_newer_version_with_details(temp_data_dir, tmp_path):
+    source = tmp_path / "future.lumina"
+    _write_template_container(
+        source,
+        {"kind": "template", "schema_version": 2},
+        {"name": "未来模板"},
+    )
+
+    with pytest.raises(AppError, match="文件版本 2.*当前支持版本 1") as exc_info:
+        TemplateStore().import_(source)
+
+    assert exc_info.value.details == {"file_version": 2, "supported_version": 1}
+    assert list(temp_data_dir.joinpath("templates").iterdir()) == []
+
+
+def test_template_import_api_returns_version_error(
+    temp_data_dir, tmp_path, monkeypatch
+):
+    source = tmp_path / "future-api.lumina"
+    _write_template_container(
+        source,
+        {"kind": "template", "schema_version": 2},
+        {"name": "未来 API 模板"},
+    )
+    monkeypatch.setattr(templates_api, "template_store", TemplateStore())
+
+    response = TestClient(create_app()).post(
+        "/api/v1/service-templates/import", json={"path": str(source)}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == {
+        "code": "VALIDATION_ERROR",
+        "message": "不支持的容器文件版本 2（当前支持版本 1）",
+        "details": {"file_version": 2, "supported_version": 1},
+    }
+
+
+def test_template_import_cleans_up_invalid_template_json(temp_data_dir, tmp_path):
+    source = tmp_path / "bad-template.lumina"
+    _write_template_container(
+        source,
+        {"kind": "template", "schema_version": 1},
+        "not-a-template-object",
+    )
+
+    with pytest.raises(AppError, match="template.json 格式错误"):
+        TemplateStore().import_(source)
+
+    assert list(temp_data_dir.joinpath("templates").iterdir()) == []
 
 
 def test_template_carries_unreferenced_media_assets(temp_data_dir, tmp_path):
@@ -103,8 +232,6 @@ def test_project_created_from_template_copies_media_assets(temp_data_dir, tmp_pa
 
 def test_builtin_template_readonly(temp_data_dir):
     store = TemplateStore()
-    import pytest
-    from app.core.errors import AppError
 
     with pytest.raises(AppError):
         store.delete("builtin-sunday")
@@ -123,6 +250,21 @@ def test_builtin_template_media_sections_use_body(temp_data_dir):
     assert media_sections[0].title == "起立默祷"
     assert media_sections[0].slide_title == "起立默祷"
     assert media_sections[0].body == "请起立默祷"
+
+
+def test_project_created_from_builtin_template_keeps_announcement_heading(
+    temp_data_dir,
+):
+    project = ProjectStore().create(template_id="builtin-sunday")
+    announcement = next(
+        section
+        for section in project.sections
+        if isinstance(section, AnnouncementSection)
+    )
+
+    assert announcement.title == "家事报告"
+    assert announcement.heading == "家事报告"
+    assert build_section_slides(announcement)[0].title == "家事报告"
 
 
 def test_font_style_survives_template_copy_and_container_roundtrip(
@@ -159,3 +301,100 @@ def test_font_style_survives_template_copy_and_container_roundtrip(
     imported_style = imported.sections[0].style.title
     assert imported_style.color == "#123456"
     assert imported_style.highlight_color == "#FFF200"
+
+
+def test_rename_template_trims_and_only_changes_persisted_name(
+    temp_data_dir, tmp_path
+):
+    store = TemplateStore()
+    project, src_dir = _project_with_media(tmp_path)
+    project.media_assets = [
+        MediaAsset(kind="image", name="背景图", ref="media/bg.png")
+    ]
+    template = store.from_project(project, src_dir, name="原模板")
+    project_store = ProjectStore()
+    existing_project = project_store.create(template_id=template.id, name="已建工程")
+    original_template = store.get(template.id).model_dump()
+    original_project = existing_project.model_dump()
+    template_dir = store.work_dir(template.id)
+    media_path = template_dir / "media" / "bg.png"
+    original_media = media_path.read_bytes()
+    original_json = json.loads((template_dir / "template.json").read_text())
+
+    renamed = store.rename(template.id, "  新模板  ")
+
+    assert renamed.name == "新模板"
+    renamed_without_name = renamed.model_dump()
+    renamed_without_name.pop("name")
+    original_template.pop("name")
+    assert renamed_without_name == original_template
+    renamed_json = json.loads((template_dir / "template.json").read_text())
+    assert renamed_json.pop("name") == "新模板"
+    original_json.pop("name")
+    assert renamed_json == original_json
+    assert media_path.read_bytes() == original_media
+    assert project_store.get(existing_project.id).model_dump() == original_project
+
+    reloaded = TemplateStore().get(template.id)
+    assert reloaded is not None
+    assert reloaded.name == "新模板"
+
+
+@pytest.mark.parametrize("name", ["", "   \t\n"])
+def test_rename_template_rejects_blank_name(temp_data_dir, name):
+    store = TemplateStore()
+    template = store.from_project(Project(), None, name="原模板")
+
+    with pytest.raises(AppError, match="模板名称不能为空"):
+        store.rename(template.id, name)
+
+    assert store.get(template.id).name == "原模板"
+
+
+def test_rename_builtin_template_is_readonly(temp_data_dir):
+    with pytest.raises(AppError, match="内置流程模板为只读，请先复制后再编辑"):
+        TemplateStore().rename("builtin-sunday", "新名称")
+
+
+def test_rename_template_api_contract(temp_data_dir, monkeypatch):
+    store = TemplateStore()
+    template = store.from_project(Project(), None, name="API 模板")
+    monkeypatch.setattr(templates_api, "template_store", store)
+    client = TestClient(create_app())
+
+    response = client.patch(
+        f"/api/v1/service-templates/{template.id}", json={"name": "  新 API 模板  "}
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["id"] == template.id
+    assert response.json()["data"]["name"] == "新 API 模板"
+    detail = client.get(f"/api/v1/service-templates/{template.id}")
+    assert detail.json()["data"]["name"] == "新 API 模板"
+    listed = client.get("/api/v1/service-templates").json()["data"]
+    assert next(item for item in listed if item["id"] == template.id)["name"] == (
+        "新 API 模板"
+    )
+
+    blank = client.patch(
+        f"/api/v1/service-templates/{template.id}", json={"name": "   "}
+    )
+    assert blank.status_code == 400
+    assert blank.json()["error"] == {
+        "code": "VALIDATION_ERROR",
+        "message": "模板名称不能为空",
+        "details": None,
+    }
+
+    builtin = client.patch(
+        "/api/v1/service-templates/builtin-sunday", json={"name": "新名称"}
+    )
+    assert builtin.status_code == 400
+    assert builtin.json()["error"]["message"] == (
+        "内置流程模板为只读，请先复制后再编辑"
+    )
+
+    missing = client.patch(
+        "/api/v1/service-templates/missing", json={"name": "新名称"}
+    )
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "NOT_FOUND"

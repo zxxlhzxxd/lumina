@@ -3,7 +3,7 @@ from __future__ import annotations
 from pptx import Presentation
 
 from app.domain.enums import SlideSize
-from app.domain.sections import CoverSection
+from app.domain.sections import AnnouncementSection, CoverSection
 from app.domain.style import (
     BlockLayout,
     EdgeInsets,
@@ -13,7 +13,7 @@ from app.domain.style import (
 )
 from app.pptx.builder import build_pptx
 from app.pptx.layout import Rect, resolve_block_rect
-from app.services.generation import SlideModel
+from app.services.generation import SlideModel, build_section_slides
 
 
 def _style(block_id: str, anchor: str, **margins: float) -> dict:
@@ -151,6 +151,19 @@ def test_pptx_uses_relative_block_position_on_standard_slide(tmp_path):
     assert round(shape.top.inches, 3) == 5.0
     assert round(shape.width.inches, 3) == 8.4
     assert round(shape.height.inches, 3) == 2.0
+
+
+def test_untitled_announcement_uses_body_only_layout(tmp_path):
+    out = tmp_path / "untitled-announcement.pptx"
+    slides = build_section_slides(
+        AnnouncementSection(title="家事报告", heading="  ", items=["报告正文"])
+    )
+    build_pptx(slides, out)
+
+    shapes = Presentation(out).slides[0].shapes
+    assert len(shapes) == 1
+    assert shapes[0].text == "报告正文"
+    assert round(shapes[0].top.inches, 3) == 0.8
 
 
 def test_pptx_uses_block_font_and_vertical_alignment(tmp_path):

@@ -33,6 +33,10 @@ class ImportTemplateBody(BaseModel):
     path: str
 
 
+class RenameTemplateBody(BaseModel):
+    name: str
+
+
 def _summary(t: ServiceTemplate) -> dict:
     return {
         "id": t.id,
@@ -86,6 +90,11 @@ def get_template(template_id: str) -> dict:
 @router.put("/{template_id}")
 def update_template(template_id: str, template: ServiceTemplate) -> dict:
     return ok(template_store.update(template_id, template).model_dump())
+
+
+@router.patch("/{template_id}")
+def rename_template(template_id: str, body: RenameTemplateBody) -> dict:
+    return ok(template_store.rename(template_id, body.name).model_dump())
 
 
 @router.delete("/{template_id}")

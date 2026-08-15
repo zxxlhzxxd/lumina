@@ -79,6 +79,10 @@ Name tests `test_*.py` and keep fixtures in `backend/tests/conftest.py`. Add foc
 
 ## Commit & Pull Request Guidelines
 
+### Feature Branch Workflow
+
+Before implementing any new feature, fetch the remote branches and identify the release branch with the highest semantic version matching `r/v<major>.<minor>.<patch>`. Create and switch to a dedicated feature branch from that release branch before making implementation changes. Do not develop a new feature directly on `main` or on an `r/*` release branch.
+
 History follows Conventional Commit-style subjects, for example `feat: add project list page` and `fix: make style edits visible`. Use concise `feat:`, `fix:`, `test:`, or `docs:` prefixes.
 
 Pull requests should describe the user-facing change, list verification commands run, link related issues or requirements, and include screenshots or short recordings for UI changes.

@@ -6,6 +6,8 @@ const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const { createAppSettings } = require("./app-settings.cjs");
+const { showPptxSaveDialog } = require("./pptx-save-dialog.cjs");
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
@@ -13,6 +15,14 @@ let backendProcess = null;
 let backendPort = null;
 let backendReady = null; // Promise resolving to the port
 let mainWindow = null;
+let appSettings = null;
+
+function getAppSettings() {
+  if (!appSettings) {
+    appSettings = createAppSettings(app.getPath("userData"));
+  }
+  return appSettings;
+}
 
 function resolvePython(backendDir) {
   const venvPython =
@@ -174,29 +184,54 @@ ipcMain.handle("backend:info", async () => {
 });
 
 ipcMain.handle("dialog:savePptx", async (_evt, defaultName) => {
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: "导出 PowerPoint",
-    defaultPath: defaultName || "礼拜.pptx",
-    filters: [{ name: "PowerPoint", extensions: ["pptx"] }],
+  return showPptxSaveDialog({
+    dialog,
+    browserWindow: mainWindow,
+    settings: getAppSettings(),
+    documentsDirectory: app.getPath("documents"),
+    defaultName,
   });
-  return result.canceled ? null : result.filePath;
 });
 
+const mediaFilterMap = {
+  image: {
+    name: "图片",
+    extensions: ["jpg", "jpeg", "png", "gif", "bmp", "webp"],
+  },
+  audio: { name: "音频", extensions: ["mp3", "wav"] },
+  video: { name: "视频", extensions: ["mp4", "mov", "m4v", "webm"] },
+};
+
+function mediaFilters(kind) {
+  return mediaFilterMap[kind]
+    ? [mediaFilterMap[kind]]
+    : [
+      {
+        name: "媒体文件",
+        extensions: [
+          "jpg", "jpeg", "png", "gif", "bmp", "webp",
+          "mp3", "wav", "mp4", "mov", "m4v", "webm",
+        ],
+      },
+    ];
+}
+
 ipcMain.handle("dialog:pickMedia", async (_evt, kind) => {
-  const filterMap = {
-    image: { name: "图片", extensions: ["jpg", "jpeg", "png", "gif", "bmp", "webp"] },
-    audio: { name: "音频", extensions: ["mp3", "wav"] },
-    video: { name: "视频", extensions: ["mp4", "mov", "m4v", "webm"] },
-  };
-  const filters = filterMap[kind]
-    ? [filterMap[kind]]
-    : [{ name: "媒体文件", extensions: ["jpg", "jpeg", "png", "mp3", "wav", "mp4"] }];
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "选择媒体文件",
     properties: ["openFile"],
-    filters,
+    filters: mediaFilters(kind),
   });
   return result.canceled || !result.filePaths.length ? null : result.filePaths[0];
+});
+
+ipcMain.handle("dialog:pickMediaFiles", async (_evt, kind) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "批量选择媒体文件",
+    properties: ["openFile", "multiSelections"],
+    filters: mediaFilters(kind),
+  });
+  return result.canceled ? [] : result.filePaths;
 });
 
 ipcMain.handle("dialog:exportTemplate", async (_evt, defaultName) => {

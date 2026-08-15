@@ -23,6 +23,17 @@ export interface MediaAsset {
   created_at?: string;
 }
 
+export interface MediaImportFailure {
+  source_path: string;
+  code: string;
+  message: string;
+}
+
+export interface MediaBatchImportResult {
+  assets: MediaAsset[];
+  failed: MediaImportFailure[];
+}
+
 export interface TextStyle {
   font_family?: string | null;
   font_size?: number | null;
@@ -194,6 +205,16 @@ export interface TemplateSummary {
   description: string;
   section_count: number;
   media_asset_count?: number;
+}
+
+export interface ServiceTemplate {
+  id: string;
+  name: string;
+  builtin: boolean;
+  description: string;
+  slide_size: SlideSize;
+  sections: Section[];
+  media_assets: MediaAsset[];
 }
 
 export interface HymnLyricSection {

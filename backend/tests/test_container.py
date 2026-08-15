@@ -1,4 +1,9 @@
 """Tests for zip container pack/unpack and media helpers."""
+import json
+import zipfile
+
+import pytest
+
 from app.domain.sections import CoverSection, MediaSection
 from app.domain.style import SectionStyle
 from app.services import container, media_store
@@ -22,6 +27,105 @@ def test_pack_unpack_roundtrip(tmp_path):
     assert manifest["kind"] == "project"
     assert (dest / "project.json").exists()
     assert (dest / "media" / "pic.png").read_bytes() == b"PNGDATA"
+
+
+def _write_versioned_container(path, version=1):
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            "manifest.json",
+            json.dumps({"kind": "template", "schema_version": version}),
+        )
+        zf.writestr("template.json", json.dumps({"name": "旧模板"}))
+
+
+def test_versioned_unpack_runs_complete_migration_chain(tmp_path):
+    source = tmp_path / "old.lumina"
+    _write_versioned_container(source)
+    calls = []
+
+    def migrate_v1(context):
+        calls.append(1)
+        payload = json.loads((context.work_dir / "template.json").read_text())
+        payload["description"] = "v2"
+        (context.work_dir / "template.json").write_text(json.dumps(payload))
+
+    def migrate_v2(context):
+        calls.append(2)
+        (context.work_dir / "media").mkdir()
+        (context.work_dir / "media" / "marker.txt").write_text("v3")
+
+    dest = tmp_path / "imported"
+    manifest = container.unpack_versioned(
+        source,
+        dest,
+        expected_kind="template",
+        current_version=3,
+        migrations={1: migrate_v1, 2: migrate_v2},
+    )
+
+    assert calls == [1, 2]
+    assert manifest["schema_version"] == 3
+    assert json.loads((dest / "manifest.json").read_text())["schema_version"] == 3
+    assert json.loads((dest / "template.json").read_text())["description"] == "v2"
+    assert (dest / "media" / "marker.txt").read_text() == "v3"
+
+
+def test_versioned_unpack_preflights_complete_migration_chain(tmp_path):
+    source = tmp_path / "old.lumina"
+    _write_versioned_container(source)
+    calls = []
+    dest = tmp_path / "imported"
+
+    with pytest.raises(AppError, match="缺少版本 2 到版本 3 的迁移"):
+        container.unpack_versioned(
+            source,
+            dest,
+            expected_kind="template",
+            current_version=3,
+            migrations={1: lambda context: calls.append(context)},
+        )
+
+    assert calls == []
+    assert not dest.exists()
+
+
+def test_versioned_unpack_cleans_up_failed_migration(tmp_path):
+    source = tmp_path / "old.lumina"
+    _write_versioned_container(source)
+    dest = tmp_path / "imported"
+
+    def fail(context):
+        (context.work_dir / "partial.txt").write_text("partial")
+        raise RuntimeError("boom")
+
+    with pytest.raises(AppError, match="版本 1 迁移到版本 2 失败") as exc_info:
+        container.unpack_versioned(
+            source,
+            dest,
+            expected_kind="template",
+            current_version=2,
+            migrations={1: fail},
+        )
+
+    assert exc_info.value.details == {"source_version": 1, "target_version": 2}
+    assert not dest.exists()
+
+
+def test_versioned_unpack_rejects_bad_zip_without_creating_destination(tmp_path):
+    source = tmp_path / "bad.lumina"
+    source.write_bytes(b"not-a-zip")
+    dest = tmp_path / "imported"
+
+    with pytest.raises(AppError, match="非 zip 格式"):
+        container.unpack_versioned(
+            source,
+            dest,
+            expected_kind="template",
+            current_version=1,
+            migrations={},
+        )
+
+    assert not dest.exists()
 
 
 def test_collect_and_rewrite_media_refs():

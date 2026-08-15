@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { App as AntApp, Button, Modal, Space, Tooltip } from "antd";
+import { App as AntApp, Button, Input, Modal, Space, Tooltip } from "antd";
 import {
   CopyOutlined,
   DeleteOutlined,
+  EditOutlined,
   ExportOutlined,
   ImportOutlined,
 } from "@ant-design/icons";
@@ -16,12 +17,16 @@ import type { TemplateSummary } from "../types";
 interface Props {
   open: boolean;
   onClose: () => void;
-  onChanged?: () => void;
+  onChanged?: () => void | Promise<void>;
 }
 
 export function TemplateManager({ open, onClose, onChanged }: Props) {
   const { message, modal } = AntApp.useApp();
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [renaming, setRenaming] = useState<TemplateSummary | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -43,6 +48,47 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
       message.success("已复制模板");
     } catch (e: any) {
       message.error(e.message ?? "复制失败");
+    }
+  };
+
+  const openRename = (template: TemplateSummary) => {
+    setRenaming(template);
+    setRenameValue(template.name);
+    setRenameError("");
+  };
+
+  const closeRename = () => {
+    if (renameSaving) return;
+    setRenaming(null);
+    setRenameValue("");
+    setRenameError("");
+  };
+
+  const handleRename = async () => {
+    if (!renaming) return;
+    const name = renameValue.trim();
+    if (!name) {
+      setRenameError("模板名称不能为空");
+      return;
+    }
+    setRenameSaving(true);
+    try {
+      await api.renameTemplate(renaming.id, name);
+      setTemplates((current) =>
+        current.map((template) =>
+          template.id === renaming.id ? { ...template, name } : template
+        )
+      );
+      setRenaming(null);
+      setRenameValue("");
+      setRenameError("");
+      await load();
+      await onChanged?.();
+      message.success("已重命名模板");
+    } catch (e: any) {
+      message.error(e.message ?? "重命名失败");
+    } finally {
+      setRenameSaving(false);
     }
   };
 
@@ -145,15 +191,25 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
               />
             </Tooltip>
             {!t.builtin && (
-              <Tooltip title="删除">
-                <Button
-                  type="text"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDelete(t)}
-                />
-              </Tooltip>
+              <>
+                <Tooltip title="重命名">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => openRename(t)}
+                  />
+                </Tooltip>
+                <Tooltip title="删除">
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDelete(t)}
+                  />
+                </Tooltip>
+              </>
             )}
           </div>
         ))}
@@ -161,6 +217,35 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
           导入/导出的模板容器（.lumina）包含全部引用的媒体文件。
         </div>
       </Space>
+      <Modal
+        title="重命名流程模板"
+        open={renaming !== null}
+        onCancel={closeRename}
+        onOk={handleRename}
+        okText="保存"
+        cancelText="取消"
+        confirmLoading={renameSaving}
+        maskClosable={!renameSaving}
+      >
+        <Input
+          value={renameValue}
+          autoFocus
+          status={renameError ? "error" : undefined}
+          placeholder="模板名称"
+          onChange={(event) => {
+            setRenameValue(event.target.value);
+            if (renameError) setRenameError("");
+          }}
+          onPressEnter={() => {
+            if (!renameSaving) void handleRename();
+          }}
+        />
+        {renameError && (
+          <div style={{ color: "#ff4d4f", fontSize: 12, marginTop: 6 }}>
+            {renameError}
+          </div>
+        )}
+      </Modal>
     </Modal>
   );
 }

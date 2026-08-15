@@ -9,9 +9,11 @@ import type {
   LiturgyText,
   LiturgyTextSummary,
   MediaAsset,
+  MediaBatchImportResult,
   MediaKind,
   Project,
   ProjectSummary,
+  ServiceTemplate,
   SlideModel,
   TemplateSummary,
   ValidationIssue,
@@ -25,6 +27,7 @@ declare global {
       pickMediaDialog: (
         kind: MediaKind
       ) => Promise<string | null>;
+      pickMediaFilesDialog: (kind: MediaKind) => Promise<string[]>;
       exportTemplateDialog: (defaultName: string) => Promise<string | null>;
       importTemplateDialog: () => Promise<string | null>;
       exportHymnLibraryDialog: (defaultName: string) => Promise<string | null>;
@@ -209,7 +212,10 @@ export const api = {
     ),
 
   // ---- service templates ----
-  getTemplate: (id: string) => request<any>("GET", `/service-templates/${id}`),
+  getTemplate: (id: string) =>
+    request<ServiceTemplate>("GET", `/service-templates/${id}`),
+  renameTemplate: (id: string, name: string) =>
+    request<ServiceTemplate>("PATCH", `/service-templates/${id}`, { name }),
   deleteTemplate: (id: string) =>
     request<{ deleted: string }>("DELETE", `/service-templates/${id}`),
   duplicateTemplate: (id: string) =>
@@ -231,6 +237,16 @@ export const api = {
       source_path: sourcePath,
       kind: kind ?? null,
     }),
+  importMediaBatch: (
+    projectId: string,
+    sourcePaths: string[],
+    kind: MediaKind
+  ) =>
+    request<MediaBatchImportResult>(
+      "POST",
+      `/projects/${projectId}/media/batch`,
+      { source_paths: sourcePaths, kind }
+    ),
   deleteMedia: (projectId: string, ref: string) => {
     const file = ref.startsWith("media/") ? ref.slice("media/".length) : ref;
     return request<{ deleted: string }>(
@@ -261,6 +277,13 @@ export async function pickMediaFile(
     return window.lumina.pickMediaDialog(kind);
   }
   return null;
+}
+
+export async function pickMediaFiles(kind: MediaKind): Promise<string[]> {
+  if (window.lumina?.pickMediaFilesDialog) {
+    return window.lumina.pickMediaFilesDialog(kind);
+  }
+  return [];
 }
 
 export async function pickTemplateExportPath(
