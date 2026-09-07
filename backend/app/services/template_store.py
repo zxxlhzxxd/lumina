@@ -67,7 +67,7 @@ def _default_sunday_template() -> ServiceTemplate:
             liturgy_id="builtin-gloria",
             paragraphs=list(GLORIA),
         ),
-        ScriptureSection(title="证道经文", reference=""),
+        ScriptureSection(title="证道经文", slide_title="证道经文", reference=""),
         CoverSection(title="证道题目", main_title=""),
         LiturgyTextSection(title="回应祷告", slide_title="回应祷告", paragraphs=[]),
         HymnSection(title="回应诗歌", song_title=""),
