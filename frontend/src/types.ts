@@ -112,6 +112,7 @@ export interface ResponsiveReadingSection extends SectionBase {
 
 export interface ScriptureSection extends SectionBase {
   type: "scripture";
+  slide_title: string;
   reference: string;
   show_verse_number: boolean;
   include_title_slide: boolean;

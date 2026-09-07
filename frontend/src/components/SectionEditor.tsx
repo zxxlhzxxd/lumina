@@ -164,8 +164,10 @@ export function SectionEditor({
             <>
               <Form.Item label="经文标题">
                 <Input
-                  value={section.title}
-                  onChange={(e) => patch({ title: e.target.value } as Partial<Section>)}
+                  value={section.slide_title}
+                  onChange={(e) =>
+                    patch({ slide_title: e.target.value } as Partial<Section>)
+                  }
                   placeholder="如：证道经文"
                 />
               </Form.Item>
