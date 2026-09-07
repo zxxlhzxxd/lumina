@@ -229,7 +229,7 @@ export const api = {
   exportTemplate: (id: string, path: string) =>
     request<{ path: string }>("POST", `/service-templates/${id}/export`, { path }),
   importTemplate: (path: string) =>
-    request<any>("POST", "/service-templates/import", { path }),
+    request<ServiceTemplate>("POST", "/service-templates/import", { path }),
 
   // ---- media ----
   importMedia: (projectId: string, sourcePath: string, kind?: MediaKind) =>
