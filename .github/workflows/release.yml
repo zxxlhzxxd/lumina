@@ -33,14 +33,6 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Build backend
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-build.txt
-          python -m app.data.import_bible
-          python -m PyInstaller --noconfirm --clean lumina-backend.spec
-
       - name: Import Apple signing certificate
         if: env.APPLE_CERTIFICATE_BASE64 != ''
         env:
@@ -59,18 +51,9 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
           echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Build macOS installer
-        working-directory: frontend
-        timeout-minutes: 20
-        run: |
-          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
-            export CSC_IDENTITY_AUTO_DISCOVERY=false
-          fi
-          npm run dist:mac
+      - name: Build macOS arm64
+        timeout-minutes: 30
+        run: ./scripts/build-mac-arm64.sh
 
       - uses: actions/upload-artifact@v4
         with:
@@ -99,29 +82,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Build backend
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-build.txt
-          python -m app.data.import_bible
-          python -m PyInstaller --noconfirm --clean lumina-backend.spec
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Build Windows installer
-        working-directory: frontend
+      - name: Build Windows x64
         shell: pwsh
-        run: |
-          if ([string]::IsNullOrEmpty($env:WIN_CSC_LINK)) {
-            $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
-          } else {
-            $env:CSC_LINK = $env:WIN_CSC_LINK
-            $env:CSC_KEY_PASSWORD = $env:WIN_CSC_KEY_PASSWORD
-          }
-          npm run dist:win
+        run: .\scripts\build-win.ps1
 
       - uses: actions/upload-artifact@v4
         with:

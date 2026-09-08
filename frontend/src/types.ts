@@ -186,6 +186,15 @@ export interface ProjectSummary {
   updated_at?: string;
 }
 
+export interface BibleInfo {
+  id: string;
+  name: string;
+  short_name: string;
+  year?: string;
+  license?: string;
+  language?: string;
+}
+
 export interface Book {
   id: number;
   name: string;

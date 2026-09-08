@@ -38,7 +38,7 @@ python -m app.data.import_bible
 python -m app.main
 ```
 
-`python -m app.data.import_bible` creates local `backend/app/data/bible.sqlite`; do not commit generated SQLite data. Use `LUMINA_PORT` and `LUMINA_HOST` to pin the dev server if needed.
+`python -m app.data.import_bible` reads bundled `backend/app/data/cuv-1919-shen-hans.lumina-bible` (1919 CUV Shen, Simplified, public domain) and writes `backend/app/data/bible.sqlite`. Do not commit generated SQLite data. Pass `--source path/to/file.lumina-bible` to import a local translation. See `docs/lumina-bible.md`. Use `LUMINA_PORT` and `LUMINA_HOST` to pin the dev server if needed.
 
 Frontend setup and local run:
 

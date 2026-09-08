@@ -7,7 +7,7 @@ import {
   RightOutlined,
 } from "@ant-design/icons";
 import { api } from "../api";
-import type { Book, ChapterInfo } from "../types";
+import type { BibleInfo, Book, ChapterInfo } from "../types";
 
 interface Props {
   value: string;
@@ -83,6 +83,7 @@ export function ReferencePicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<PickerView>("books");
   const [books, setBooks] = useState<Book[]>([]);
+  const [bibleInfo, setBibleInfo] = useState<BibleInfo | null>(null);
   const [booksLoading, setBooksLoading] = useState(true);
   const [booksError, setBooksError] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
@@ -99,9 +100,11 @@ export function ReferencePicker({ value, onChange }: Props) {
   const loadBooks = () => {
     setBooksLoading(true);
     setBooksError(false);
-    api
-      .listBooks()
-      .then(setBooks)
+    Promise.all([api.listBooks(), api.getBibleInfo().catch(() => null)])
+      .then(([bookList, info]) => {
+        setBooks(bookList);
+        setBibleInfo(info);
+      })
       .catch(() => setBooksError(true))
       .finally(() => setBooksLoading(false));
   };
@@ -419,6 +422,9 @@ export function ReferencePicker({ value, onChange }: Props) {
       <div className="reference-picker__header">
         <div className="reference-picker__title">
           {selectedBook?.name ?? "选择经卷"}
+          {bibleInfo?.short_name ? (
+            <div className="reference-picker__edition">{bibleInfo.short_name}</div>
+          ) : null}
         </div>
         <div className="reference-picker__steps">
           <button

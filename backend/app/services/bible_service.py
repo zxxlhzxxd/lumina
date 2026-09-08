@@ -33,7 +33,7 @@ class BibleService:
     def _connect(self) -> sqlite3.Connection:
         if not self.is_available():
             raise BibleNotAvailableError(
-                "圣经数据未就绪，请先运行 `python -m app.data.import_bible` 导入和合本数据。"
+                "圣经数据未就绪，请先运行 `python -m app.data.import_bible` 导入圣经数据。"
             )
         if self._conn is None:
             self._conn = sqlite3.connect(
@@ -65,6 +65,17 @@ class BibleService:
             self._loaded = True
 
     # ---- queries ---------------------------------------------------------
+    def get_info(self) -> dict:
+        """Translation metadata written at import time (`bible_meta`)."""
+        if not self.is_available():
+            return {}
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT key, value FROM bible_meta").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+        return {row["key"]: row["value"] for row in rows}
+
     def get_books(self) -> List[Book]:
         conn = self._connect()
         rows = conn.execute(

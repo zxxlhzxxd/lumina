@@ -50,13 +50,19 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Import the local Bible database:
+Import the local Bible database (bundled 1919 Chinese Union Version, Shen edition):
 
 ```bash
 python -m app.data.import_bible
 ```
 
-This creates `backend/app/data/bible.sqlite`. The SQLite database is generated local data and should not be committed.
+This reads `backend/app/data/cuv-1919-shen-hans.lumina-bible` and writes `backend/app/data/bible.sqlite`. The SQLite database is generated local data and should not be committed. To import another local `.lumina-bible` source:
+
+```bash
+python -m app.data.import_bible --source /path/to/custom.lumina-bible
+```
+
+See [docs/lumina-bible.md](docs/lumina-bible.md) for the `.lumina-bible` format.
 
 ### 2. Frontend Setup
 
@@ -117,30 +123,21 @@ npm run build
 
 `npm run build` runs TypeScript checking with `tsc --noEmit` and then builds the Vite renderer bundle.
 
-Backend executable build:
+macOS arm64 installer (imports the bundled 1919 Shen CUV unless `--bible` is passed):
 
 ```bash
-cd backend
-python -m pip install -r requirements-build.txt
-python -m app.data.import_bible
-python -m PyInstaller --noconfirm --clean lumina-backend.spec
-```
-
-Electron installers expect the backend build at `backend/dist/lumina-backend`.
-
-macOS arm64 installer:
-
-```bash
-cd frontend
-npm run dist:mac
+./scripts/build-mac-arm64.sh
+./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible
 ```
 
 Windows x64 installer:
 
-```bash
-cd frontend
-npm run dist:win
+```powershell
+.\scripts\build-win.ps1
+.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible
 ```
+
+The scripts create `backend/.venv` if needed, import the Bible source, run PyInstaller, and run electron-builder. Electron installers expect the backend build at `backend/dist/lumina-backend`.
 
 GitHub releases are created by pushing a version tag:
 
@@ -229,6 +226,8 @@ Project and template containers bundle referenced media so they can be moved bet
 ## Documentation
 
 - [Requirements](REQUIREMENTS.md)
+- [Bible source format (`.lumina-bible`)](docs/lumina-bible.md)
+- [Bundled 1919 CUV license notes](backend/app/data/BIBLE-LICENSE.md)
 - [中文说明](README.zh-CN.md)
 
 ## License

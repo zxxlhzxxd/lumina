@@ -50,13 +50,19 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-导入本地圣经数据库：
+导入本地圣经数据库（默认捆绑 1919 和合本神版）：
 
 ```bash
 python -m app.data.import_bible
 ```
 
-该命令会生成 `backend/app/data/bible.sqlite`。这是本地生成数据，不应提交到仓库。
+该命令读取 `backend/app/data/cuv-1919-shen-hans.lumina-bible`，生成 `backend/app/data/bible.sqlite`。sqlite 是本地生成数据，不应提交。若要导入其他本地 `.lumina-bible` 源：
+
+```bash
+python -m app.data.import_bible --source /path/to/custom.lumina-bible
+```
+
+格式说明见 [docs/lumina-bible.md](docs/lumina-bible.md)。
 
 ### 2. 前端环境
 
@@ -117,30 +123,21 @@ npm run build
 
 `npm run build` 会先运行 `tsc --noEmit` 做 TypeScript 检查，然后构建 Vite 渲染进程产物。
 
-后端可执行文件构建：
+macOS arm64 安装包（默认导入捆绑的 1919 神版；可用 `--bible` 换本地源）：
 
 ```bash
-cd backend
-python -m pip install -r requirements-build.txt
-python -m app.data.import_bible
-python -m PyInstaller --noconfirm --clean lumina-backend.spec
-```
-
-Electron 安装包会从 `backend/dist/lumina-backend` 读取后端产物。
-
-macOS arm64 安装包：
-
-```bash
-cd frontend
-npm run dist:mac
+./scripts/build-mac-arm64.sh
+./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible
 ```
 
 Windows x64 安装包：
 
-```bash
-cd frontend
-npm run dist:win
+```powershell
+.\scripts\build-win.ps1
+.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible
 ```
+
+脚本会按需创建 `backend/.venv`，导入圣经源，运行 PyInstaller 与 electron-builder。Electron 安装包从 `backend/dist/lumina-backend` 读取后端产物。
 
 推送版本 tag 会触发 GitHub Release：
 
@@ -229,6 +226,8 @@ LUMINA_PORT=8000 python -m app.main
 ## 文档
 
 - [需求文档](REQUIREMENTS.md)
+- [圣经源格式（`.lumina-bible`）](docs/lumina-bible.md)
+- [捆绑 1919 和合本许可说明](backend/app/data/BIBLE-LICENSE.md)
 - [English README](README.md)
 
 ## License

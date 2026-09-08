@@ -2,6 +2,7 @@
 // backend binds to a random local port), with a fallback for plain-browser dev.
 // The UI depends only on these functions, never on backend internals.
 import type {
+  BibleInfo,
   Book,
   ChapterInfo,
   Hymn,
@@ -165,6 +166,8 @@ export const api = {
       "/bible/parse-ref",
       { ref }
     ),
+
+  getBibleInfo: () => request<BibleInfo>("GET", "/bible/info"),
 
   listBooks: () => request<Book[]>("GET", "/bible/books"),
 
