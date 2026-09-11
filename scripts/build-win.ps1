@@ -2,9 +2,11 @@
 # Usage:
 #   .\scripts\build-win.ps1
 #   .\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible
+#   .\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible -BibleTag cuv1919
 [CmdletBinding()]
 param(
-    [string]$Bible = ""
+    [string]$Bible = "",
+    [string]$BibleTag = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,6 +19,10 @@ if ($Bible -ne "") {
         throw "找不到圣经源 $Bible"
     }
     $Bible = (Resolve-Path -LiteralPath $Bible).Path
+}
+
+if ($BibleTag -ne "" -and $BibleTag -notmatch '^[A-Za-z0-9._-]+$') {
+    throw "圣经版本缩写只能包含字母、数字、点、下划线和连字符"
 }
 
 $env:PYTHONUTF8 = "1"
@@ -75,4 +81,21 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "electron-builder Windows 打包失败" }
 } finally {
     Pop-Location
+}
+
+if ($BibleTag -ne "") {
+    $releaseDir = Join-Path $Frontend "release"
+    Get-ChildItem -LiteralPath $releaseDir -File | Where-Object {
+        $_.Name -match '^Lumina-.+-win-x64\.exe(\.blockmap)?$'
+    } | ForEach-Object {
+        if ($_.Name.EndsWith(".exe.blockmap")) {
+            $stem = $_.Name.Substring(0, $_.Name.Length - ".exe.blockmap".Length)
+            $destName = "$stem-$BibleTag.exe.blockmap"
+        } else {
+            $stem = $_.Name.Substring(0, $_.Name.Length - ".exe".Length)
+            $destName = "$stem-$BibleTag.exe"
+        }
+        Rename-Item -LiteralPath $_.FullName -NewName $destName
+        Write-Host "安装包已标记圣经版本: $(Join-Path $releaseDir $destName)"
+    }
 }

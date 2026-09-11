@@ -123,18 +123,18 @@ npm run build
 
 `npm run build` 会先运行 `tsc --noEmit` 做 TypeScript 检查，然后构建 Vite 渲染进程产物。
 
-macOS arm64 安装包（默认导入捆绑的 1919 神版；可用 `--bible` 换本地源）：
+macOS arm64 安装包（默认导入捆绑的 1919 神版；可用 `--bible` 换本地源）。`--bible-tag` 可选，会追加到安装包文件名中：
 
 ```bash
 ./scripts/build-mac-arm64.sh
-./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible
+./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
 ```
 
 Windows x64 安装包：
 
 ```powershell
 .\scripts\build-win.ps1
-.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible
+.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible -BibleTag cuv1919
 ```
 
 脚本会按需创建 `backend/.venv`，导入圣经源，运行 PyInstaller 与 electron-builder。Electron 安装包从 `backend/dist/lumina-backend` 读取后端产物。

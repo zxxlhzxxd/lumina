@@ -3,12 +3,14 @@
 # Usage:
 #   ./scripts/build-mac-arm64.sh
 #   ./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible
+#   ./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BACKEND="$ROOT/backend"
 FRONTEND="$ROOT/frontend"
 BIBLE=""
+BIBLE_TAG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -20,8 +22,16 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --bible-tag)
+      BIBLE_TAG="${2:-}"
+      if [[ -z "$BIBLE_TAG" ]]; then
+        echo "error: --bible-tag 需要一个圣经版本缩写" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
     -h|--help)
-      sed -n '2,6p' "$0"
+      sed -n '2,7p' "$0"
       exit 0
       ;;
     *)
@@ -30,6 +40,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "$BIBLE_TAG" && ! "$BIBLE_TAG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "error: 圣经版本缩写只能包含字母、数字、点、下划线和连字符" >&2
+  exit 1
+fi
 
 if [[ -n "$BIBLE" ]]; then
   BIBLE="$(cd "$(dirname "$BIBLE")" && pwd)/$(basename "$BIBLE")"
@@ -69,3 +84,19 @@ else
   npm install
 fi
 npm run dist:mac
+
+if [[ -n "$BIBLE_TAG" ]]; then
+  release_dir="$FRONTEND/release"
+  shopt -s nullglob
+  for src in "$release_dir"/Lumina-*-mac-arm64.dmg "$release_dir"/Lumina-*-mac-arm64.dmg.blockmap; do
+    [[ -f "$src" ]] || continue
+    base="$(basename "$src")"
+    if [[ "$base" == *.dmg.blockmap ]]; then
+      dest="$release_dir/${base%.dmg.blockmap}-${BIBLE_TAG}.dmg.blockmap"
+    else
+      dest="$release_dir/${base%.dmg}-${BIBLE_TAG}.dmg"
+    fi
+    mv "$src" "$dest"
+    echo "安装包已标记圣经版本: $dest"
+  done
+fi

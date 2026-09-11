@@ -123,18 +123,18 @@ npm run build
 
 `npm run build` runs TypeScript checking with `tsc --noEmit` and then builds the Vite renderer bundle.
 
-macOS arm64 installer (imports the bundled 1919 Shen CUV unless `--bible` is passed):
+macOS arm64 installer (imports the bundled 1919 Shen CUV unless `--bible` is passed). `--bible-tag` is optional and is appended to the installer filename:
 
 ```bash
 ./scripts/build-mac-arm64.sh
-./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible
+./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
 ```
 
 Windows x64 installer:
 
 ```powershell
 .\scripts\build-win.ps1
-.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible
+.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible -BibleTag cuv1919
 ```
 
 The scripts create `backend/.venv` if needed, import the Bible source, run PyInstaller, and run electron-builder. Electron installers expect the backend build at `backend/dist/lumina-backend`.

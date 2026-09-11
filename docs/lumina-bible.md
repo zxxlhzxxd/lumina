@@ -146,15 +146,17 @@ macOS arm64：
 
 ```bash
 ./scripts/build-mac-arm64.sh
-./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible
+./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
 ```
 
 Windows x64：
 
 ```powershell
 .\scripts\build-win.ps1
-.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible
+.\scripts\build-win.ps1 -Bible D:\bibles\custom.lumina-bible -BibleTag cuv1919
 ```
+
+`--bible-tag` / `-BibleTag` 可选。指定后安装包会改名为例如 `Lumina-0.0.4-mac-arm64-cuv1919.dmg` 或 `Lumina-0.0.4-win-x64-cuv1919.exe`。
 
 ## 版权
 
