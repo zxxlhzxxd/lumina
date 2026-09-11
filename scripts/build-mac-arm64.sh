@@ -2,8 +2,8 @@
 # Build the macOS arm64 installer.
 # Usage:
 #   ./scripts/build-mac-arm64.sh
-#   ./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible
 #   ./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
+#   ./scripts/build-mac-arm64.sh --sign
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,6 +11,7 @@ BACKEND="$ROOT/backend"
 FRONTEND="$ROOT/frontend"
 BIBLE=""
 BIBLE_TAG=""
+SIGN=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -30,8 +31,16 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --sign)
+      SIGN=1
+      shift
+      ;;
+    --no-sign)
+      SIGN=0
+      shift
+      ;;
     -h|--help)
-      sed -n '2,7p' "$0"
+      sed -n '2,6p' "$0"
       exit 0
       ;;
     *)
@@ -75,8 +84,11 @@ fi
 python -m PyInstaller --noconfirm --clean lumina-backend.spec
 
 cd "$FRONTEND"
-if [[ -z "${APPLE_CERTIFICATE_BASE64:-}" ]]; then
+if [[ "$SIGN" -eq 1 ]]; then
+  echo "Apple Developer 签名已开启。"
+else
   export CSC_IDENTITY_AUTO_DISCOVERY=false
+  echo "跳过 Apple Developer 签名。"
 fi
 if [[ -f package-lock.json ]]; then
   npm ci

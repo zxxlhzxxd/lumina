@@ -123,11 +123,12 @@ npm run build
 
 `npm run build` runs TypeScript checking with `tsc --noEmit` and then builds the Vite renderer bundle.
 
-macOS arm64 installer (imports the bundled 1919 Shen CUV unless `--bible` is passed). `--bible-tag` is optional and is appended to the installer filename:
+macOS arm64 installer (imports the bundled 1919 Shen CUV unless `--bible` is passed). `--bible-tag` is optional and is appended to the installer filename. Pass `--sign` to codesign with an Apple Developer identity; omit it for an unsigned local build:
 
 ```bash
 ./scripts/build-mac-arm64.sh
 ./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
+./scripts/build-mac-arm64.sh --sign
 ```
 
 Windows x64 installer:

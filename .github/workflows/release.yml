@@ -53,7 +53,7 @@ jobs:
 
       - name: Build macOS arm64
         timeout-minutes: 30
-        run: ./scripts/build-mac-arm64.sh
+        run: ./scripts/build-mac-arm64.sh --sign
 
       - uses: actions/upload-artifact@v4
         with:

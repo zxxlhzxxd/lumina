@@ -147,6 +147,7 @@ macOS arm64：
 ```bash
 ./scripts/build-mac-arm64.sh
 ./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
+./scripts/build-mac-arm64.sh --sign
 ```
 
 Windows x64：

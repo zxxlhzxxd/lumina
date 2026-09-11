@@ -123,11 +123,12 @@ npm run build
 
 `npm run build` 会先运行 `tsc --noEmit` 做 TypeScript 检查，然后构建 Vite 渲染进程产物。
 
-macOS arm64 安装包（默认导入捆绑的 1919 神版；可用 `--bible` 换本地源）。`--bible-tag` 可选，会追加到安装包文件名中：
+macOS arm64 安装包（默认导入捆绑的 1919 神版；可用 `--bible` 换本地源）。`--bible-tag` 可选，会追加到安装包文件名中。需要 Apple Developer 签名时加 `--sign`，不加则打未签名包：
 
 ```bash
 ./scripts/build-mac-arm64.sh
 ./scripts/build-mac-arm64.sh --bible /path/to/custom.lumina-bible --bible-tag cuv1919
+./scripts/build-mac-arm64.sh --sign
 ```
 
 Windows x64 安装包：
