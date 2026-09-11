@@ -22,6 +22,7 @@ def version() -> dict:
         {
             "name": settings.APP_NAME,
             "version": __version__,
+            "bible": bible_service.get_info(),
             "capabilities": {
                 "bible": bible_service.is_available(),
                 "sectionTypes": [

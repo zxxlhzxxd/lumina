@@ -863,6 +863,13 @@ body {
   text-align: center;
 }
 
+.reference-picker__edition {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #8c8c8c;
+}
+
 .reference-picker__steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

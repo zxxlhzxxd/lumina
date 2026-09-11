@@ -14,6 +14,21 @@ class ParseRefBody(BaseModel):
     ref: str
 
 
+@router.get("/info")
+def get_info() -> dict:
+    info = bible_service.get_info()
+    return ok(
+        {
+            "id": info.get("id") or "",
+            "name": info.get("name") or "",
+            "short_name": info.get("short_name") or info.get("name") or "",
+            "year": info.get("year") or "",
+            "license": info.get("license") or "",
+            "language": info.get("language") or "",
+        }
+    )
+
+
 @router.get("/books")
 def get_books() -> dict:
     return ok([b.model_dump() for b in bible_service.get_books()])
