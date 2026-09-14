@@ -48,6 +48,16 @@ if ($LASTEXITCODE -ne 0) { throw "pip 升级失败" }
 & $VenvPython -m pip install -r (Join-Path $Backend "requirements-build.txt")
 if ($LASTEXITCODE -ne 0) { throw "安装后端构建依赖失败" }
 
+# npm dist:* runs `python3 scripts/generate_app_icons.py --check`, which is the
+# runner Python on Windows CI, not the backend venv.
+$IconPython = Get-Command python3 -ErrorAction SilentlyContinue
+if ($IconPython) {
+    & $IconPython.Source -m pip install -r (Join-Path $Frontend "scripts\requirements-icons.txt")
+} else {
+    & $Python -m pip install -r (Join-Path $Frontend "scripts\requirements-icons.txt")
+}
+if ($LASTEXITCODE -ne 0) { throw "安装图标校验依赖失败" }
+
 Push-Location $Backend
 try {
     if ($Bible -ne "") {

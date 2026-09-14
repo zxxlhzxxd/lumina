@@ -74,6 +74,8 @@ source "$BACKEND/.venv/bin/activate"
 
 python -m pip install --upgrade pip
 python -m pip install -r "$BACKEND/requirements-build.txt"
+# npm dist:mac runs `python3 scripts/generate_app_icons.py --check`.
+python -m pip install -r "$FRONTEND/scripts/requirements-icons.txt"
 
 cd "$BACKEND"
 if [[ -n "$BIBLE" ]]; then
