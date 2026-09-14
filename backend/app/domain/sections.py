@@ -43,6 +43,7 @@ class ResponsiveReadingSection(SectionBase):
 
 class ScriptureSection(SectionBase):
     type: Literal[SectionType.SCRIPTURE] = SectionType.SCRIPTURE
+    slide_title: str = ""
     reference: str = ""
     show_verse_number: bool = True
     include_title_slide: bool = True
@@ -50,6 +51,13 @@ class ScriptureSection(SectionBase):
     # 'auto' = paginate by capacity, 'manual' = use explicit page breaks (phase 2)
     pagination_mode: Literal["auto", "manual"] = "auto"
     chars_per_slide: int = 140  # capacity hint for auto pagination
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_slide_title(cls, data):
+        if isinstance(data, dict) and "slide_title" not in data and data.get("title"):
+            return {**data, "slide_title": data["title"]}
+        return data
 
 
 class HymnSection(SectionBase):

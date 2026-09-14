@@ -10,6 +10,20 @@ const { createAppSettings } = require("./app-settings.cjs");
 const { showPptxSaveDialog } = require("./pptx-save-dialog.cjs");
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+const APP_DISPLAY_NAME = "Lumina";
+
+function applyAppDisplayName() {
+  // package.json `name` is lumina-frontend; keep that userData path so
+  // existing installs do not look like a new app after the menu rename.
+  const userData = app.getPath("userData");
+  app.setName(APP_DISPLAY_NAME);
+  app.setPath("userData", userData);
+  if (process.platform === "darwin") {
+    app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME });
+  }
+}
+
+applyAppDisplayName();
 
 let backendProcess = null;
 let backendPort = null;

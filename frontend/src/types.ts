@@ -112,6 +112,7 @@ export interface ResponsiveReadingSection extends SectionBase {
 
 export interface ScriptureSection extends SectionBase {
   type: "scripture";
+  slide_title: string;
   reference: string;
   show_verse_number: boolean;
   include_title_slide: boolean;
@@ -183,6 +184,15 @@ export interface ProjectSummary {
   date: string | null;
   section_count: number;
   updated_at?: string;
+}
+
+export interface BibleInfo {
+  id: string;
+  name: string;
+  short_name: string;
+  year?: string;
+  license?: string;
+  language?: string;
 }
 
 export interface Book {

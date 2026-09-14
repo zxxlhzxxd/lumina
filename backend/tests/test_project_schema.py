@@ -72,6 +72,48 @@ def test_legacy_media_title_migrates_to_slide_title():
     assert data["sections"][0]["slide_title"] == "起立默祷"
 
 
+def test_legacy_scripture_title_migrates_to_slide_title():
+    project = Project.model_validate(
+        {
+            "sections": [
+                {
+                    "type": "scripture",
+                    "title": "证道经文",
+                    "reference": "以西结书4:1-3",
+                }
+            ]
+        }
+    )
+
+    section = project.sections[0]
+    assert isinstance(section, ScriptureSection)
+    assert section.title == "证道经文"
+    assert section.slide_title == "证道经文"
+
+    data = json.loads(project.model_dump_json())
+    assert data["sections"][0]["slide_title"] == "证道经文"
+
+
+def test_scripture_slide_title_does_not_overwrite_existing_value():
+    project = Project.model_validate(
+        {
+            "sections": [
+                {
+                    "type": "scripture",
+                    "title": "左侧段落名",
+                    "slide_title": "证道经文",
+                    "reference": "以西结书4:1-3",
+                }
+            ]
+        }
+    )
+
+    section = project.sections[0]
+    assert isinstance(section, ScriptureSection)
+    assert section.title == "左侧段落名"
+    assert section.slide_title == "证道经文"
+
+
 def test_legacy_scripture_defaults_to_paragraph_layout():
     project = Project.model_validate(
         {

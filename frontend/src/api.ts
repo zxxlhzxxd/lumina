@@ -2,6 +2,7 @@
 // backend binds to a random local port), with a fallback for plain-browser dev.
 // The UI depends only on these functions, never on backend internals.
 import type {
+  BibleInfo,
   Book,
   ChapterInfo,
   Hymn,
@@ -166,6 +167,8 @@ export const api = {
       { ref }
     ),
 
+  getBibleInfo: () => request<BibleInfo>("GET", "/bible/info"),
+
   listBooks: () => request<Book[]>("GET", "/bible/books"),
 
   listChapters: (bookId: number) =>
@@ -229,7 +232,7 @@ export const api = {
   exportTemplate: (id: string, path: string) =>
     request<{ path: string }>("POST", `/service-templates/${id}/export`, { path }),
   importTemplate: (path: string) =>
-    request<any>("POST", "/service-templates/import", { path }),
+    request<ServiceTemplate>("POST", "/service-templates/import", { path }),
 
   // ---- media ----
   importMedia: (projectId: string, sourcePath: string, kind?: MediaKind) =>

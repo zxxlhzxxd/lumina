@@ -7,11 +7,9 @@ import {
   ExportOutlined,
   ImportOutlined,
 } from "@ant-design/icons";
-import {
-  api,
-  pickTemplateExportPath,
-  pickTemplateImportPath,
-} from "../api";
+import { api, pickTemplateExportPath } from "../api";
+import { useTemplateImport } from "../hooks/useTemplateImport";
+import { upsertTemplateSummary } from "../templateSummary";
 import type { TemplateSummary } from "../types";
 
 interface Props {
@@ -27,6 +25,7 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
+  const { importing, importTemplate } = useTemplateImport();
 
   const load = useCallback(async () => {
     try {
@@ -123,15 +122,13 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
   };
 
   const handleImport = async () => {
-    const path = await pickTemplateImportPath();
-    if (!path) return;
+    const template = await importTemplate();
+    if (!template) return;
+    setTemplates((current) => upsertTemplateSummary(current, template));
     try {
-      await api.importTemplate(path);
-      await load();
-      onChanged?.();
-      message.success("已导入模板");
+      await onChanged?.();
     } catch (e: any) {
-      message.error(e.message ?? "导入失败");
+      message.error(e.message ?? "模板已导入，刷新模板列表失败");
     }
   };
 
@@ -139,13 +136,24 @@ export function TemplateManager({ open, onClose, onChanged }: Props) {
     <Modal
       title="流程模板管理"
       open={open}
-      onCancel={onClose}
+      onCancel={() => {
+        if (!importing) onClose();
+      }}
+      closable={!importing}
+      maskClosable={!importing}
+      keyboard={!importing}
       width={600}
       footer={[
-        <Button key="import" icon={<ImportOutlined />} onClick={handleImport}>
+        <Button
+          key="import"
+          icon={<ImportOutlined />}
+          loading={importing}
+          disabled={importing}
+          onClick={handleImport}
+        >
           导入模板
         </Button>,
-        <Button key="close" onClick={onClose}>
+        <Button key="close" disabled={importing} onClick={onClose}>
           关闭
         </Button>,
       ]}

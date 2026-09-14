@@ -130,7 +130,7 @@ def _scripture_slides(s: ScriptureSection, resolve: PassageResolver) -> List[Sli
     slides: List[SlideModel] = []
     idx = 0
     if s.include_title_slide:
-        title = s.title.strip() or ref.book_name
+        title = s.slide_title.strip() or ref.book_name
         slides.append(
             SlideModel(
                 kind="scripture_title",

@@ -28,6 +28,7 @@ export function makeSection(type: SectionType): Section {
       return {
         ...base,
         type,
+        slide_title: "",
         reference: "",
         show_verse_number: true,
         include_title_slide: true,

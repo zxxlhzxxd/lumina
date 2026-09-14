@@ -6,7 +6,6 @@ import {
   Input,
   Modal,
   Result,
-  Select,
   Space,
   Spin,
   Tag,
@@ -34,12 +33,15 @@ import type {
   MediaAsset,
   Section,
   SectionType,
+  ServiceTemplate,
   SlideModel,
   TemplateSummary,
 } from "./types";
 import { SECTION_TYPE_LABEL } from "./types";
 import { makeSection } from "./sectionFactory";
 import { resolveStyle } from "./styleResolve";
+import { upsertTemplateSummary } from "./templateSummary";
+import { NewProjectModal } from "./components/NewProjectModal";
 import { ProjectListPage } from "./components/ProjectListPage";
 import { SectionEditor } from "./components/SectionEditor";
 import { SlidePreview } from "./components/SlidePreview";
@@ -88,6 +90,10 @@ function Main() {
     } catch {
       // non-fatal
     }
+  }, []);
+
+  const handleTemplateImported = useCallback((template: ServiceTemplate) => {
+    setTemplates((current) => upsertTemplateSummary(current, template));
   }, []);
 
   // ---- backend bootstrap ----
@@ -796,6 +802,7 @@ function Main() {
         templates={templates}
         onCancel={() => setNewOpen(false)}
         onCreate={handleCreate}
+        onTemplateImported={handleTemplateImported}
       />
 
       <TemplateManager
@@ -862,57 +869,6 @@ function Main() {
         当前工程有未保存的修改，离开前如何处理？
       </Modal>
     </div>
-  );
-}
-
-function NewProjectModal({
-  open,
-  templates,
-  onCancel,
-  onCreate,
-}: {
-  open: boolean;
-  templates: TemplateSummary[];
-  onCancel: () => void;
-  onCreate: (templateId: string, name: string) => void;
-}) {
-  const [name, setName] = useState("主日崇拜");
-  const [templateId, setTemplateId] = useState<string>("");
-
-  useEffect(() => {
-    if (open && templates.length && !templateId) {
-      setTemplateId(templates[0].id);
-    }
-  }, [open, templates, templateId]);
-
-  return (
-    <Modal
-      title="新建礼拜工程"
-      open={open}
-      onCancel={onCancel}
-      onOk={() => onCreate(templateId, name)}
-      okText="创建"
-      cancelText="取消"
-    >
-      <Space direction="vertical" style={{ width: "100%" }} size="middle">
-        <div>
-          <div style={{ marginBottom: 6 }}>工程名称</div>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div>
-          <div style={{ marginBottom: 6 }}>流程模板</div>
-          <Select
-            style={{ width: "100%" }}
-            value={templateId}
-            onChange={setTemplateId}
-            options={templates.map((t) => ({
-              label: `${t.name}（${t.section_count} 段）`,
-              value: t.id,
-            }))}
-          />
-        </div>
-      </Space>
-    </Modal>
   );
 }
 
